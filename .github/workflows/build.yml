@@ -20,10 +20,10 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Create Android project
+      - name: Create Android Project
         shell: bash
         run: |
-          mkdir -p app/src/main/java/com/example/floatinginput
+          mkdir -p app/src/main/java/com/jiexin/floatinginput
           mkdir -p app/src/main/res/values
 
           cat > settings.gradle <<'EOF'
@@ -44,38 +44,35 @@ jobs:
           }
 
           rootProject.name = "FloatingInputApp"
-          include(":app")
+          include ":app"
           EOF
 
           cat > build.gradle <<'EOF'
           plugins {
               id 'com.android.application' version '8.7.3' apply false
-              id 'org.jetbrains.kotlin.android' version '2.0.21' apply false
           }
           EOF
 
           cat > gradle.properties <<'EOF'
-          android.useAndroidX=true
-          android.nonTransitiveRClass=true
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
           EOF
 
           cat > app/build.gradle <<'EOF'
           plugins {
               id 'com.android.application'
-              id 'org.jetbrains.kotlin.android'
           }
 
           android {
-              namespace 'com.example.floatinginput'
+              namespace 'com.jiexin.floatinginput'
               compileSdk 35
 
               defaultConfig {
-                  applicationId "com.example.floatinginput"
+                  applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 1
-                  versionName "1.0"
+                  versionCode 2
+                  versionName "2.0"
               }
           }
           EOF
@@ -120,14 +117,13 @@ jobs:
                   </activity>
 
                   <service
-                      android:name=".FloatingInputService"
+                      android:name=".FloatingService"
                       android:exported="false"
                       android:foregroundServiceType="specialUse">
 
                       <property
                           android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                          android:value="Persistent floating text input overlay controlled by the user" />
-
+                          android:value="User controlled floating text input overlay" />
                   </service>
 
               </application>
@@ -135,720 +131,973 @@ jobs:
           </manifest>
           EOF
 
-          cat > app/src/main/java/com/example/floatinginput/MainActivity.kt <<'EOF'
-          package com.example.floatinginput
+          cat > app/src/main/java/com/jiexin/floatinginput/MainActivity.java <<'EOF'
+          package com.jiexin.floatinginput;
 
-          import android.app.Activity
-          import android.content.Intent
-          import android.graphics.Color
-          import android.graphics.drawable.GradientDrawable
-          import android.net.Uri
-          import android.os.Build
-          import android.os.Bundle
-          import android.provider.Settings
-          import android.view.Gravity
-          import android.view.ViewGroup
-          import android.widget.Button
-          import android.widget.LinearLayout
-          import android.widget.TextView
-          import android.widget.Toast
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.graphics.Color;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.provider.Settings;
+          import android.view.ViewGroup;
+          import android.widget.Button;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
+          import android.widget.Toast;
 
-          class MainActivity : Activity() {
+          public class MainActivity extends Activity {
 
-              private fun dp(value: Int): Int {
-                  return (value * resources.displayMetrics.density).toInt()
+              private int dp(int value) {
+                  return (int) (value * getResources().getDisplayMetrics().density);
               }
 
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
 
-                  val main = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(dp(22), dp(35), dp(22), dp(25))
-                      setBackgroundColor(Color.rgb(245, 247, 250))
-                  }
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setPadding(dp(22), dp(35), dp(22), dp(25));
+                  root.setBackgroundColor(Color.rgb(245, 247, 250));
 
-                  val title = TextView(this).apply {
-                      text = "悬浮输入框"
-                      textSize = 28f
-                      setTextColor(Color.rgb(25, 35, 50))
-                      setPadding(0, 0, 0, dp(12))
-                  }
+                  TextView title = new TextView(this);
+                  title.setText("悬浮输入框");
+                  title.setTextSize(28);
+                  title.setTextColor(Color.rgb(25, 35, 50));
+                  title.setPadding(0, 0, 0, dp(15));
+                  root.addView(title);
 
-                  val info = TextView(this).apply {
-                      text =
-                          "使用说明：\n\n" +
-                          "① 开启“显示在其他应用上层”权限\n" +
-                          "② 点击“显示悬浮输入框”\n" +
-                          "③ 点击输入框即可输入文字\n" +
-                          "④ 长按输入框约0.5秒后拖动，可以移动位置\n" +
-                          "⑤ 拖动右下角 ↘ 可以自由改变大小\n" +
-                          "⑥ 下方 − / + 调节整体透明度\n\n" +
-                          "透明度共6档：90%、70%、50%、40%、30%、20%"
-                      textSize = 17f
-                      setTextColor(Color.DKGRAY)
-                      setLineSpacing(0f, 1.2f)
-                      setPadding(0, 0, 0, dp(22))
-                  }
+                  TextView info = new TextView(this);
+                  info.setText(
+                          "使用方法：\n\n" +
+                          "① 开启悬浮窗权限\n" +
+                          "② 点击显示悬浮输入框\n" +
+                          "③ 点击输入框即可呼出输入法\n" +
+                          "④ 长按输入框约0.5秒并拖动可移动位置\n" +
+                          "⑤ 拖动右下角 ↘ 可自由调节宽度和高度\n" +
+                          "⑥ 点击 − / + 调节整体透明度\n\n" +
+                          "透明度：90%、70%、50%、40%、30%、20%"
+                  );
+                  info.setTextSize(17);
+                  info.setTextColor(Color.DKGRAY);
+                  info.setPadding(0, 0, 0, dp(20));
+                  root.addView(info);
 
-                  fun makeButton(textValue: String): Button {
-                      return Button(this).apply {
-                          text = textValue
-                          textSize = 17f
-                          isAllCaps = false
-                      }
-                  }
+                  Button permission = new Button(this);
+                  permission.setText("① 开启悬浮窗权限");
+                  permission.setAllCaps(false);
 
-                  val permissionButton = makeButton("① 开启悬浮窗权限").apply {
-                      setOnClickListener {
-                          val intent = Intent(
+                  permission.setOnClickListener(v -> {
+                      Intent intent = new Intent(
                               Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                              Uri.parse("package:$packageName")
-                          )
-                          startActivity(intent)
-                      }
-                  }
+                              Uri.parse("package:" + getPackageName())
+                      );
+                      startActivity(intent);
+                  });
 
-                  val showButton = makeButton("② 显示悬浮输入框").apply {
-                      setOnClickListener {
-                          if (!Settings.canDrawOverlays(this@MainActivity)) {
-                              Toast.makeText(
-                                  this@MainActivity,
+                  addButton(root, permission);
+
+                  Button show = new Button(this);
+                  show.setText("② 显示悬浮输入框");
+                  show.setAllCaps(false);
+
+                  show.setOnClickListener(v -> {
+
+                      if (!Settings.canDrawOverlays(this)) {
+                          Toast.makeText(
+                                  this,
                                   "请先开启悬浮窗权限",
                                   Toast.LENGTH_SHORT
-                              ).show()
+                          ).show();
 
-                              startActivity(
-                                  Intent(
-                                      Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                      Uri.parse("package:$packageName")
-                                  )
-                              )
-                              return@setOnClickListener
-                          }
+                          Intent permissionIntent = new Intent(
+                                  Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                  Uri.parse("package:" + getPackageName())
+                          );
+                          startActivity(permissionIntent);
+                          return;
+                      }
 
-                          val intent = Intent(
-                              this@MainActivity,
-                              FloatingInputService::class.java
-                          )
+                      Intent serviceIntent =
+                              new Intent(this, FloatingService.class);
 
-                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                              startForegroundService(intent)
-                          } else {
-                              startService(intent)
-                          }
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          startForegroundService(serviceIntent);
+                      } else {
+                          startService(serviceIntent);
+                      }
 
-                          Toast.makeText(
-                              this@MainActivity,
+                      Toast.makeText(
+                              this,
                               "悬浮输入框已显示",
                               Toast.LENGTH_SHORT
-                          ).show()
-                      }
-                  }
+                      ).show();
+                  });
 
-                  val closeButton = makeButton("关闭悬浮输入框").apply {
-                      setOnClickListener {
+                  addButton(root, show);
+
+                  Button close = new Button(this);
+                  close.setText("关闭悬浮输入框");
+                  close.setAllCaps(false);
+
+                  close.setOnClickListener(v ->
                           stopService(
-                              Intent(
-                                  this@MainActivity,
-                                  FloatingInputService::class.java
-                              )
+                                  new Intent(this, FloatingService.class)
                           )
-                      }
-                  }
+                  );
 
-                  val buttonParams = LinearLayout.LayoutParams(
-                      ViewGroup.LayoutParams.MATCH_PARENT,
-                      dp(58)
-                  ).apply {
-                      bottomMargin = dp(12)
-                  }
+                  addButton(root, close);
 
-                  main.addView(title)
-                  main.addView(info)
-                  main.addView(permissionButton, buttonParams)
-                  main.addView(showButton, buttonParams)
-                  main.addView(closeButton, buttonParams)
+                  setContentView(root);
+              }
 
-                  setContentView(main)
+              private void addButton(
+                      LinearLayout root,
+                      Button button
+              ) {
+                  LinearLayout.LayoutParams lp =
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  dp(58)
+                          );
+
+                  lp.bottomMargin = dp(12);
+                  root.addView(button, lp);
               }
           }
           EOF
 
-          cat > app/src/main/java/com/example/floatinginput/FloatingInputService.kt <<'EOF'
-          package com.example.floatinginput
+          cat > app/src/main/java/com/jiexin/floatinginput/FloatingService.java <<'EOF'
+          package com.jiexin.floatinginput;
 
-          import android.app.Notification
-          import android.app.NotificationChannel
-          import android.app.NotificationManager
-          import android.app.PendingIntent
-          import android.app.Service
-          import android.content.Context
-          import android.content.Intent
-          import android.graphics.Color
-          import android.graphics.PixelFormat
-          import android.graphics.drawable.GradientDrawable
-          import android.os.Build
-          import android.os.IBinder
-          import android.os.SystemClock
-          import android.view.Gravity
-          import android.view.MotionEvent
-          import android.view.View
-          import android.view.ViewConfiguration
-          import android.view.ViewGroup
-          import android.view.WindowManager
-          import android.view.inputmethod.InputMethodManager
-          import android.widget.Button
-          import android.widget.EditText
-          import android.widget.FrameLayout
-          import android.widget.LinearLayout
-          import android.widget.TextView
-          import kotlin.math.abs
+          import android.app.Notification;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.PendingIntent;
+          import android.app.Service;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.graphics.Color;
+          import android.graphics.PixelFormat;
+          import android.graphics.drawable.GradientDrawable;
+          import android.os.Build;
+          import android.os.IBinder;
+          import android.os.SystemClock;
+          import android.view.Gravity;
+          import android.view.MotionEvent;
+          import android.view.ViewConfiguration;
+          import android.view.ViewGroup;
+          import android.view.WindowManager;
+          import android.view.inputmethod.InputMethodManager;
+          import android.widget.Button;
+          import android.widget.EditText;
+          import android.widget.FrameLayout;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
 
-          class FloatingInputService : Service() {
+          public class FloatingService extends Service {
 
-              companion object {
-                  private const val CHANNEL_ID = "floating_input_channel"
-                  private const val NOTIFICATION_ID = 1001
+              private static final String CHANNEL_ID =
+                      "floating_input_channel";
+
+              private static final int NOTIFICATION_ID = 1001;
+
+              private WindowManager windowManager;
+              private LinearLayout rootView;
+              private EditText inputBox;
+              private TextView alphaText;
+              private TextView resizeHandle;
+              private WindowManager.LayoutParams params;
+
+              private SharedPreferences prefs;
+
+              private final float[] alphaLevels = {
+                      0.90f,
+                      0.70f,
+                      0.50f,
+                      0.40f,
+                      0.30f,
+                      0.20f
+              };
+
+              private final String[] alphaLabels = {
+                      "90%",
+                      "70%",
+                      "50%",
+                      "40%",
+                      "30%",
+                      "20%"
+              };
+
+              private int alphaIndex = 0;
+
+              private float downRawX;
+              private float downRawY;
+
+              private int startX;
+              private int startY;
+
+              private long downTime;
+              private boolean moving = false;
+
+              private float resizeRawX;
+              private float resizeRawY;
+
+              private int startWidth;
+              private int startHeight;
+
+              private int dp(int value) {
+                  return (int) (
+                          value *
+                          getResources().getDisplayMetrics().density
+                  );
               }
 
-              private lateinit var windowManager: WindowManager
-              private lateinit var rootView: LinearLayout
-              private lateinit var inputBox: EditText
-              private lateinit var resizeHandle: TextView
-              private lateinit var alphaText: TextView
-              private lateinit var params: WindowManager.LayoutParams
+              @Override
+              public void onCreate() {
+                  super.onCreate();
 
-              private val alphaLevels = floatArrayOf(
-                  0.90f,
-                  0.70f,
-                  0.50f,
-                  0.40f,
-                  0.30f,
-                  0.20f
-              )
+                  prefs = getSharedPreferences(
+                          "floating_settings",
+                          MODE_PRIVATE
+                  );
 
-              private val alphaLabels = arrayOf(
-                  "90%",
-                  "70%",
-                  "50%",
-                  "40%",
-                  "30%",
-                  "20%"
-              )
+                  createNotificationChannel();
 
-              private var alphaIndex = 0
-
-              private var downRawX = 0f
-              private var downRawY = 0f
-              private var startWindowX = 0
-              private var startWindowY = 0
-              private var downTime = 0L
-              private var moving = false
-
-              private var resizeRawX = 0f
-              private var resizeRawY = 0f
-              private var startWidth = 0
-              private var startHeight = 0
-
-              private val prefs by lazy {
-                  getSharedPreferences("floating_input_settings", MODE_PRIVATE)
-              }
-
-              private fun dp(value: Int): Int {
-                  return (value * resources.displayMetrics.density).toInt()
-              }
-
-              override fun onCreate() {
-                  super.onCreate()
-
-                  createNotificationChannel()
-                  startForeground(NOTIFICATION_ID, createNotification())
+                  startForeground(
+                          NOTIFICATION_ID,
+                          createNotification()
+                  );
 
                   windowManager =
-                      getSystemService(Context.WINDOW_SERVICE) as WindowManager
+                          (WindowManager)
+                          getSystemService(WINDOW_SERVICE);
 
-                  createFloatingWindow()
+                  createFloatingWindow();
               }
 
-              private fun createNotificationChannel() {
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      val channel = NotificationChannel(
-                          CHANNEL_ID,
-                          "悬浮输入框",
-                          NotificationManager.IMPORTANCE_LOW
-                      ).apply {
-                          description = "保持悬浮输入框运行"
-                          setShowBadge(false)
-                      }
+              private void createNotificationChannel() {
 
-                      val manager =
-                          getSystemService(NotificationManager::class.java)
+                  if (Build.VERSION.SDK_INT >=
+                          Build.VERSION_CODES.O) {
 
-                      manager.createNotificationChannel(channel)
+                      NotificationChannel channel =
+                              new NotificationChannel(
+                                      CHANNEL_ID,
+                                      "悬浮输入框",
+                                      NotificationManager.IMPORTANCE_LOW
+                              );
+
+                      channel.setDescription(
+                              "保持悬浮输入框运行"
+                      );
+
+                      channel.setShowBadge(false);
+
+                      NotificationManager manager =
+                              getSystemService(
+                                      NotificationManager.class
+                              );
+
+                      manager.createNotificationChannel(channel);
                   }
               }
 
-              private fun createNotification(): Notification {
-                  val intent = Intent(this, MainActivity::class.java)
+              private Notification createNotification() {
 
-                  val pendingIntent = PendingIntent.getActivity(
-                      this,
-                      0,
-                      intent,
-                      PendingIntent.FLAG_UPDATE_CURRENT or
-                          PendingIntent.FLAG_IMMUTABLE
-                  )
+                  Intent intent =
+                          new Intent(this, MainActivity.class);
 
-                  return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      Notification.Builder(this, CHANNEL_ID)
-                          .setContentTitle("悬浮输入框正在运行")
-                          .setContentText("点击返回悬浮输入框设置")
-                          .setSmallIcon(android.R.drawable.ic_menu_edit)
-                          .setContentIntent(pendingIntent)
-                          .setOngoing(true)
-                          .build()
+                  PendingIntent pendingIntent =
+                          PendingIntent.getActivity(
+                                  this,
+                                  0,
+                                  intent,
+                                  PendingIntent.FLAG_UPDATE_CURRENT |
+                                  PendingIntent.FLAG_IMMUTABLE
+                          );
+
+                  Notification.Builder builder;
+
+                  if (Build.VERSION.SDK_INT >=
+                          Build.VERSION_CODES.O) {
+
+                      builder =
+                              new Notification.Builder(
+                                      this,
+                                      CHANNEL_ID
+                              );
+
                   } else {
-                      Notification.Builder(this)
-                          .setContentTitle("悬浮输入框正在运行")
-                          .setContentText("点击返回悬浮输入框设置")
-                          .setSmallIcon(android.R.drawable.ic_menu_edit)
+
+                      builder =
+                              new Notification.Builder(this);
+                  }
+
+                  return builder
+                          .setContentTitle(
+                                  "悬浮输入框正在运行"
+                          )
+                          .setContentText(
+                                  "点击返回设置"
+                          )
+                          .setSmallIcon(
+                                  android.R.drawable.ic_menu_edit
+                          )
                           .setContentIntent(pendingIntent)
                           .setOngoing(true)
-                          .build()
-                  }
+                          .build();
               }
 
-              private fun roundedBackground(
-                  color: Int,
-                  radiusDp: Int,
-                  strokeColor: Int? = null,
-                  strokeDp: Int = 1
-              ): GradientDrawable {
-                  return GradientDrawable().apply {
-                      setColor(color)
-                      cornerRadius = dp(radiusDp).toFloat()
+              private GradientDrawable background(
+                      int color,
+                      int radius,
+                      Integer strokeColor
+              ) {
 
-                      if (strokeColor != null) {
-                          setStroke(dp(strokeDp), strokeColor)
-                      }
+                  GradientDrawable drawable =
+                          new GradientDrawable();
+
+                  drawable.setColor(color);
+                  drawable.setCornerRadius(dp(radius));
+
+                  if (strokeColor != null) {
+                      drawable.setStroke(
+                              dp(1),
+                              strokeColor
+                      );
                   }
+
+                  return drawable;
               }
 
-              private fun createFloatingWindow() {
+              private void createFloatingWindow() {
 
-                  rootView = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(dp(8), dp(8), dp(8), dp(8))
-                      background = roundedBackground(
-                          Color.WHITE,
-                          12,
-                          Color.rgb(80, 80, 80),
-                          1
-                      )
-                  }
+                  rootView =
+                          new LinearLayout(this);
 
-                  val inputFrame = FrameLayout(this)
+                  rootView.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
 
-                  inputBox = EditText(this).apply {
-                      hint = "点击这里输入文字"
-                      textSize = 18f
-                      gravity = Gravity.TOP or Gravity.START
-                      setTextColor(Color.BLACK)
-                      setHintTextColor(Color.GRAY)
-                      setSingleLine(false)
-                      minLines = 2
-                      setPadding(
+                  rootView.setPadding(
+                          dp(8),
+                          dp(8),
+                          dp(8),
+                          dp(8)
+                  );
+
+                  rootView.setBackground(
+                          background(
+                                  Color.WHITE,
+                                  12,
+                                  Color.rgb(90, 90, 90)
+                          )
+                  );
+
+                  FrameLayout inputFrame =
+                          new FrameLayout(this);
+
+                  inputBox =
+                          new EditText(this);
+
+                  inputBox.setHint(
+                          "点击这里输入文字"
+                  );
+
+                  inputBox.setTextSize(18);
+                  inputBox.setGravity(
+                          Gravity.TOP |
+                          Gravity.START
+                  );
+
+                  inputBox.setTextColor(
+                          Color.BLACK
+                  );
+
+                  inputBox.setHintTextColor(
+                          Color.GRAY
+                  );
+
+                  inputBox.setSingleLine(false);
+                  inputBox.setMinLines(2);
+
+                  inputBox.setPadding(
                           dp(12),
                           dp(10),
-                          dp(42),
-                          dp(12)
-                      )
+                          dp(48),
+                          dp(45)
+                  );
 
-                      background = roundedBackground(
-                          Color.WHITE,
-                          8,
-                          Color.LTGRAY,
-                          1
-                      )
-                  }
+                  inputBox.setBackground(
+                          background(
+                                  Color.WHITE,
+                                  8,
+                                  Color.LTGRAY
+                          )
+                  );
 
-                  inputFrame.addView(
-                      inputBox,
-                      FrameLayout.LayoutParams(
-                          ViewGroup.LayoutParams.MATCH_PARENT,
-                          ViewGroup.LayoutParams.MATCH_PARENT
-                      )
-                  )
-
-                  resizeHandle = TextView(this).apply {
-                      text = "↘"
-                      textSize = 26f
-                      gravity = Gravity.CENTER
-                      setTextColor(Color.rgb(45, 90, 180))
-                      background = roundedBackground(
-                          Color.argb(45, 80, 120, 220),
-                          7
-                      )
-                  }
-
-                  val resizeParams = FrameLayout.LayoutParams(
-                      dp(42),
-                      dp(42),
-                      Gravity.BOTTOM or Gravity.END
-                  )
+                  FrameLayout.LayoutParams inputLp =
+                          new FrameLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  ViewGroup.LayoutParams.MATCH_PARENT
+                          );
 
                   inputFrame.addView(
-                      resizeHandle,
-                      resizeParams
-                  )
+                          inputBox,
+                          inputLp
+                  );
 
-                  val controls = LinearLayout(this).apply {
-                      orientation = LinearLayout.HORIZONTAL
-                      gravity = Gravity.CENTER_VERTICAL
-                      setPadding(0, dp(5), 0, 0)
-                  }
+                  resizeHandle =
+                          new TextView(this);
 
-                  val minusButton = Button(this).apply {
-                      text = "−"
-                      textSize = 22f
-                      isAllCaps = false
-                      setPadding(0, 0, 0, 0)
+                  resizeHandle.setText("↘");
+                  resizeHandle.setTextSize(27);
+                  resizeHandle.setGravity(
+                          Gravity.CENTER
+                  );
 
-                      setOnClickListener {
-                          if (alphaIndex < alphaLevels.lastIndex) {
-                              alphaIndex++
-                              updateTransparency()
-                              saveSettings()
-                          }
-                      }
-                  }
+                  resizeHandle.setTextColor(
+                          Color.rgb(
+                                  40,
+                                  90,
+                                  190
+                          )
+                  );
 
-                  alphaText = TextView(this).apply {
-                      textSize = 16f
-                      gravity = Gravity.CENTER
-                      setTextColor(Color.DKGRAY)
-                  }
+                  resizeHandle.setBackground(
+                          background(
+                                  Color.argb(
+                                          60,
+                                          80,
+                                          120,
+                                          220
+                                  ),
+                                  8,
+                                  null
+                          )
+                  );
 
-                  val plusButton = Button(this).apply {
-                      text = "+"
-                      textSize = 22f
-                      isAllCaps = false
-                      setPadding(0, 0, 0, 0)
+                  FrameLayout.LayoutParams resizeLp =
+                          new FrameLayout.LayoutParams(
+                                  dp(44),
+                                  dp(44),
+                                  Gravity.BOTTOM |
+                                  Gravity.END
+                          );
 
-                      setOnClickListener {
-                          if (alphaIndex > 0) {
-                              alphaIndex--
-                              updateTransparency()
-                              saveSettings()
-                          }
-                      }
-                  }
+                  inputFrame.addView(
+                          resizeHandle,
+                          resizeLp
+                  );
 
-                  controls.addView(
-                      minusButton,
-                      LinearLayout.LayoutParams(
-                          dp(65),
-                          dp(50)
-                      )
-                  )
+                  LinearLayout controls =
+                          new LinearLayout(this);
 
-                  controls.addView(
-                      alphaText,
-                      LinearLayout.LayoutParams(
+                  controls.setOrientation(
+                          LinearLayout.HORIZONTAL
+                  );
+
+                  controls.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  controls.setPadding(
                           0,
-                          dp(50),
-                          1f
-                      )
-                  )
+                          dp(5),
+                          0,
+                          0
+                  );
+
+                  Button minus =
+                          new Button(this);
+
+                  minus.setText("−");
+                  minus.setTextSize(23);
+                  minus.setAllCaps(false);
+                  minus.setPadding(0, 0, 0, 0);
+
+                  Button plus =
+                          new Button(this);
+
+                  plus.setText("+");
+                  plus.setTextSize(23);
+                  plus.setAllCaps(false);
+                  plus.setPadding(0, 0, 0, 0);
+
+                  alphaText =
+                          new TextView(this);
+
+                  alphaText.setTextSize(16);
+                  alphaText.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  alphaText.setTextColor(
+                          Color.DKGRAY
+                  );
+
+                  minus.setOnClickListener(v -> {
+
+                      if (
+                          alphaIndex <
+                          alphaLevels.length - 1
+                      ) {
+                          alphaIndex++;
+                          updateAlpha();
+                          saveSettings();
+                      }
+                  });
+
+                  plus.setOnClickListener(v -> {
+
+                      if (alphaIndex > 0) {
+                          alphaIndex--;
+                          updateAlpha();
+                          saveSettings();
+                      }
+                  });
 
                   controls.addView(
-                      plusButton,
-                      LinearLayout.LayoutParams(
-                          dp(65),
-                          dp(50)
-                      )
-                  )
+                          minus,
+                          new LinearLayout.LayoutParams(
+                                  dp(65),
+                                  dp(50)
+                          )
+                  );
+
+                  controls.addView(
+                          alphaText,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(50),
+                                  1f
+                          )
+                  );
+
+                  controls.addView(
+                          plus,
+                          new LinearLayout.LayoutParams(
+                                  dp(65),
+                                  dp(50)
+                          )
+                  );
 
                   rootView.addView(
-                      inputFrame,
-                      LinearLayout.LayoutParams(
-                          ViewGroup.LayoutParams.MATCH_PARENT,
-                          0,
-                          1f
-                      )
-                  )
+                          inputFrame,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  0,
+                                  1f
+                          )
+                  );
 
                   rootView.addView(
-                      controls,
-                      LinearLayout.LayoutParams(
-                          ViewGroup.LayoutParams.MATCH_PARENT,
-                          dp(55)
-                      )
-                  )
+                          controls,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  dp(55)
+                          )
+                  );
 
-                  val windowType =
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                          WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                      } else {
-                          @Suppress("DEPRECATION")
-                          WindowManager.LayoutParams.TYPE_PHONE
-                      }
+                  int type;
 
-                  val savedWidth = prefs.getInt(
-                      "width",
-                      dp(320)
-                  )
-
-                  val savedHeight = prefs.getInt(
-                      "height",
-                      dp(230)
-                  )
-
-                  alphaIndex = prefs.getInt(
-                      "alpha_index",
-                      0
-                  ).coerceIn(
-                      0,
-                      alphaLevels.lastIndex
-                  )
-
-                  params = WindowManager.LayoutParams(
-                      savedWidth,
-                      savedHeight,
-                      windowType,
-                      WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                          WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                      PixelFormat.TRANSLUCENT
-                  ).apply {
-                      gravity = Gravity.TOP or Gravity.START
-                      x = prefs.getInt("x", dp(30))
-                      y = prefs.getInt("y", dp(120))
-                      softInputMode =
-                          WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                  if (
+                      Build.VERSION.SDK_INT >=
+                      Build.VERSION_CODES.O
+                  ) {
+                      type =
+                              WindowManager.LayoutParams
+                                      .TYPE_APPLICATION_OVERLAY;
+                  } else {
+                      type =
+                              WindowManager.LayoutParams
+                                      .TYPE_PHONE;
                   }
+
+                  int width =
+                          prefs.getInt(
+                                  "width",
+                                  dp(320)
+                          );
+
+                  int height =
+                          prefs.getInt(
+                                  "height",
+                                  dp(230)
+                          );
+
+                  alphaIndex =
+                          prefs.getInt(
+                                  "alpha",
+                                  0
+                          );
+
+                  if (alphaIndex < 0) {
+                      alphaIndex = 0;
+                  }
+
+                  if (
+                      alphaIndex >=
+                      alphaLevels.length
+                  ) {
+                      alphaIndex = 0;
+                  }
+
+                  params =
+                          new WindowManager.LayoutParams(
+                                  width,
+                                  height,
+                                  type,
+                                  WindowManager.LayoutParams
+                                          .FLAG_NOT_TOUCH_MODAL |
+                                  WindowManager.LayoutParams
+                                          .FLAG_LAYOUT_IN_SCREEN,
+                                  PixelFormat.TRANSLUCENT
+                          );
+
+                  params.gravity =
+                          Gravity.TOP |
+                          Gravity.START;
+
+                  params.x =
+                          prefs.getInt(
+                                  "x",
+                                  dp(30)
+                          );
+
+                  params.y =
+                          prefs.getInt(
+                                  "y",
+                                  dp(120)
+                          );
+
+                  params.softInputMode =
+                          WindowManager.LayoutParams
+                                  .SOFT_INPUT_ADJUST_RESIZE;
 
                   windowManager.addView(
-                      rootView,
-                      params
-                  )
+                          rootView,
+                          params
+                  );
 
-                  updateTransparency()
-                  setupInputBehaviour()
-                  setupResizeBehaviour()
+                  updateAlpha();
+                  setupMove();
+                  setupResize();
               }
 
-              private fun setupInputBehaviour() {
+              private void setupMove() {
 
-                  val touchSlop =
-                      ViewConfiguration.get(this).scaledTouchSlop
+                  final int touchSlop =
+                          ViewConfiguration
+                                  .get(this)
+                                  .getScaledTouchSlop();
 
-                  inputBox.setOnTouchListener { view, event ->
+                  inputBox.setOnTouchListener(
+                          (view, event) -> {
 
-                      when (event.actionMasked) {
+                      switch (
+                              event.getActionMasked()
+                      ) {
 
-                          MotionEvent.ACTION_DOWN -> {
-                              downRawX = event.rawX
-                              downRawY = event.rawY
+                          case MotionEvent.ACTION_DOWN:
 
-                              startWindowX = params.x
-                              startWindowY = params.y
+                              downRawX =
+                                      event.getRawX();
 
-                              downTime = SystemClock.uptimeMillis()
-                              moving = false
+                              downRawY =
+                                      event.getRawY();
 
-                              false
-                          }
+                              startX =
+                                      params.x;
 
-                          MotionEvent.ACTION_MOVE -> {
+                              startY =
+                                      params.y;
 
-                              val elapsed =
-                                  SystemClock.uptimeMillis() - downTime
+                              downTime =
+                                      SystemClock
+                                              .uptimeMillis();
 
-                              val dx =
-                                  event.rawX - downRawX
+                              moving = false;
 
-                              val dy =
-                                  event.rawY - downRawY
+                              return false;
+
+                          case MotionEvent.ACTION_MOVE:
+
+                              long elapsed =
+                                      SystemClock
+                                              .uptimeMillis()
+                                      - downTime;
+
+                              float dx =
+                                      event.getRawX()
+                                      - downRawX;
+
+                              float dy =
+                                      event.getRawY()
+                                      - downRawY;
 
                               if (
                                   elapsed >= 500 &&
                                   (
-                                      abs(dx) > touchSlop ||
-                                      abs(dy) > touchSlop
+                                      Math.abs(dx) >
+                                      touchSlop ||
+                                      Math.abs(dy) >
+                                      touchSlop
                                   )
                               ) {
-                                  moving = true
 
-                                  inputBox.clearFocus()
+                                  moving = true;
+
+                                  inputBox.clearFocus();
 
                                   params.x =
-                                      startWindowX + dx.toInt()
+                                          startX +
+                                          (int) dx;
 
                                   params.y =
-                                      startWindowY + dy.toInt()
+                                          startY +
+                                          (int) dy;
 
-                                  windowManager.updateViewLayout(
-                                      rootView,
-                                      params
-                                  )
+                                  windowManager
+                                          .updateViewLayout(
+                                                  rootView,
+                                                  params
+                                          );
 
-                                  true
-                              } else {
-                                  false
+                                  return true;
                               }
-                          }
 
-                          MotionEvent.ACTION_UP -> {
+                              return false;
+
+                          case MotionEvent.ACTION_UP:
 
                               if (moving) {
-                                  moving = false
-                                  saveSettings()
-                                  true
-                              } else {
-                                  view.performClick()
 
-                                  inputBox.isFocusableInTouchMode = true
-                                  inputBox.requestFocus()
-
-                                  val imm =
-                                      getSystemService(
-                                          Context.INPUT_METHOD_SERVICE
-                                      ) as InputMethodManager
-
-                                  imm.showSoftInput(
-                                      inputBox,
-                                      InputMethodManager.SHOW_IMPLICIT
-                                  )
-
-                                  false
+                                  moving = false;
+                                  saveSettings();
+                                  return true;
                               }
-                          }
 
-                          MotionEvent.ACTION_CANCEL -> {
-                              moving = false
-                              false
-                          }
+                              inputBox
+                                      .requestFocus();
 
-                          else -> false
+                              InputMethodManager imm =
+                                      (InputMethodManager)
+                                      getSystemService(
+                                              Context
+                                                      .INPUT_METHOD_SERVICE
+                                      );
+
+                              imm.showSoftInput(
+                                      inputBox,
+                                      InputMethodManager
+                                              .SHOW_IMPLICIT
+                              );
+
+                              return false;
+
+                          case MotionEvent.ACTION_CANCEL:
+
+                              moving = false;
+                              return false;
                       }
-                  }
+
+                      return false;
+                  });
               }
 
-              private fun setupResizeBehaviour() {
+              private void setupResize() {
 
-                  resizeHandle.setOnTouchListener { _, event ->
+                  resizeHandle.setOnTouchListener(
+                          (view, event) -> {
 
-                      when (event.actionMasked) {
+                      switch (
+                              event.getActionMasked()
+                      ) {
 
-                          MotionEvent.ACTION_DOWN -> {
+                          case MotionEvent.ACTION_DOWN:
 
-                              resizeRawX = event.rawX
-                              resizeRawY = event.rawY
+                              resizeRawX =
+                                      event.getRawX();
 
-                              startWidth = params.width
-                              startHeight = params.height
+                              resizeRawY =
+                                      event.getRawY();
 
-                              true
-                          }
+                              startWidth =
+                                      params.width;
 
-                          MotionEvent.ACTION_MOVE -> {
+                              startHeight =
+                                      params.height;
 
-                              val dx =
-                                  (event.rawX - resizeRawX).toInt()
+                              return true;
 
-                              val dy =
-                                  (event.rawY - resizeRawY).toInt()
+                          case MotionEvent.ACTION_MOVE:
 
-                              val screenWidth =
-                                  resources.displayMetrics.widthPixels
+                              int dx =
+                                      (int) (
+                                          event.getRawX()
+                                          - resizeRawX
+                                      );
 
-                              val screenHeight =
-                                  resources.displayMetrics.heightPixels
+                              int dy =
+                                      (int) (
+                                          event.getRawY()
+                                          - resizeRawY
+                                      );
+
+                              int screenWidth =
+                                      getResources()
+                                              .getDisplayMetrics()
+                                              .widthPixels;
+
+                              int screenHeight =
+                                      getResources()
+                                              .getDisplayMetrics()
+                                              .heightPixels;
+
+                              int newWidth =
+                                      startWidth + dx;
+
+                              int newHeight =
+                                      startHeight + dy;
+
+                              newWidth =
+                                      Math.max(
+                                              dp(200),
+                                              Math.min(
+                                                      newWidth,
+                                                      screenWidth
+                                              )
+                                      );
+
+                              newHeight =
+                                      Math.max(
+                                              dp(140),
+                                              Math.min(
+                                                      newHeight,
+                                                      screenHeight
+                                              )
+                                      );
 
                               params.width =
-                                  (startWidth + dx).coerceIn(
-                                      dp(220),
-                                      screenWidth
-                                  )
+                                      newWidth;
 
                               params.height =
-                                  (startHeight + dy).coerceIn(
-                                      dp(150),
-                                      screenHeight
-                                  )
+                                      newHeight;
 
-                              windowManager.updateViewLayout(
-                                  rootView,
-                                  params
-                              )
+                              windowManager
+                                      .updateViewLayout(
+                                              rootView,
+                                              params
+                                      );
 
-                              true
-                          }
+                              return true;
 
-                          MotionEvent.ACTION_UP,
-                          MotionEvent.ACTION_CANCEL -> {
-                              saveSettings()
-                              true
-                          }
+                          case MotionEvent.ACTION_UP:
+                          case MotionEvent.ACTION_CANCEL:
 
-                          else -> false
+                              saveSettings();
+                              return true;
                       }
-                  }
+
+                      return false;
+                  });
               }
 
-              private fun updateTransparency() {
+              private void updateAlpha() {
 
-                  val alpha =
-                      alphaLevels[alphaIndex]
+                  rootView.setAlpha(
+                          alphaLevels[
+                                  alphaIndex
+                          ]
+                  );
 
-                  rootView.alpha = alpha
-
-                  alphaText.text =
-                      alphaLabels[alphaIndex]
+                  alphaText.setText(
+                          alphaLabels[
+                                  alphaIndex
+                          ]
+                  );
               }
 
-              private fun saveSettings() {
+              private void saveSettings() {
 
-                  if (!::params.isInitialized) {
-                      return
+                  if (params == null) {
+                      return;
                   }
 
                   prefs.edit()
-                      .putInt("x", params.x)
-                      .putInt("y", params.y)
-                      .putInt("width", params.width)
-                      .putInt("height", params.height)
-                      .putInt("alpha_index", alphaIndex)
-                      .apply()
+                          .putInt(
+                                  "x",
+                                  params.x
+                          )
+                          .putInt(
+                                  "y",
+                                  params.y
+                          )
+                          .putInt(
+                                  "width",
+                                  params.width
+                          )
+                          .putInt(
+                                  "height",
+                                  params.height
+                          )
+                          .putInt(
+                                  "alpha",
+                                  alphaIndex
+                          )
+                          .apply();
               }
 
-              override fun onDestroy() {
+              @Override
+              public void onDestroy() {
 
-                  saveSettings()
+                  saveSettings();
 
-                  if (::rootView.isInitialized) {
+                  if (
+                      windowManager != null &&
+                      rootView != null
+                  ) {
+
                       try {
-                          windowManager.removeView(rootView)
-                      } catch (_: Exception) {
+                          windowManager
+                                  .removeView(
+                                          rootView
+                                  );
+                      } catch (
+                              Exception ignored
+                      ) {
                       }
                   }
 
-                  stopForeground(STOP_FOREGROUND_REMOVE)
+                  if (
+                      Build.VERSION.SDK_INT >=
+                      Build.VERSION_CODES.N
+                  ) {
+                      stopForeground(
+                              STOP_FOREGROUND_REMOVE
+                      );
+                  } else {
+                      stopForeground(true);
+                  }
 
-                  super.onDestroy()
+                  super.onDestroy();
               }
 
-              override fun onBind(intent: Intent?): IBinder? {
-                  return null
+              @Override
+              public IBinder onBind(
+                      Intent intent
+              ) {
+                  return null;
               }
           }
           EOF
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Install Gradle and create wrapper
+      - name: Install Gradle
         shell: bash
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
@@ -859,16 +1108,16 @@ jobs:
       - name: Build APK
         shell: bash
         run: |
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug
 
-      - name: Rename APK
+      - name: Prepare APK
         shell: bash
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V2.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-APK
-          path: FloatingInputApp.apk
+          name: FloatingInputApp-V2-APK
+          path: FloatingInputApp-V2.apk
           retention-days: 30
