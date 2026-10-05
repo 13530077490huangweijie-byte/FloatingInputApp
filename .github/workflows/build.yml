@@ -1,4 +1,4 @@
-name: Build Floating Input APK V13
+name: Build Floating Input APK V14
 
 on:
   workflow_dispatch:
@@ -72,8 +72,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 13
-                  versionName "13.0"
+                  versionCode 14
+                  versionName "14.0"
               }
 
               compileOptions {
@@ -116,7 +116,7 @@ jobs:
 
               <application
                   android:allowBackup="false"
-                  android:label="悬浮网址输入框"
+                  android:label="悬浮输入框"
                   android:theme="@style/AppTheme"
                   android:supportsRtl="true">
 
@@ -156,7 +156,7 @@ jobs:
 
                       <property
                           android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                          android:value="User controlled floating text and URL input overlay" />
+                          android:value="User controlled floating text input overlay" />
 
                   </service>
 
@@ -427,8 +427,8 @@ jobs:
                   );
 
                   /*
-                   * 每次重新打开APP：
-                   * 默认恢复90%透明度。
+                   * V14：
+                   * 每次重新打开APP默认90%透明度。
                    */
                   getSharedPreferences(
                           "floating_settings",
@@ -436,8 +436,8 @@ jobs:
                   )
                   .edit()
                   .putInt(
-                          "alpha",
-                          0
+                          "alpha_percent",
+                          90
                   )
                   .apply();
 
@@ -501,7 +501,10 @@ jobs:
 
               private void startOverlay() {
 
-                  if (started) {
+                  if (
+                      started
+                  ) {
+
                       return;
                   }
 
@@ -746,8 +749,10 @@ jobs:
                           );
 
                   info.setText(
-                          "V13 使用说明\n\n" +
+                          "V14 使用说明\n\n" +
                           "• 打开APP：直接显示悬浮窗\n\n" +
+                          "• 透明度滑块：5%～100%\n\n" +
+                          "• 字体颜色：黑→红→绿→蓝→黄→黑\n\n" +
                           "• 输入网址：回车直接打开网址\n\n" +
                           "• 输入普通文字：回车自动百度搜索\n\n" +
                           "• 点击历史：自动隐藏悬浮窗\n\n" +
@@ -1488,15 +1493,6 @@ jobs:
                               )
                       );
 
-                      /*
-                       * 单击历史记录：
-                       *
-                       * 恢复悬浮窗
-                       * +
-                       * 自动把文字放进输入框
-                       * +
-                       * 自动弹出键盘
-                       */
                       row.setOnClickListener(
                               v -> {
 
@@ -1766,10 +1762,10 @@ jobs:
           import android.view.inputmethod.EditorInfo;
           import android.view.inputmethod.InputMethodManager;
 
-          import android.widget.Button;
           import android.widget.EditText;
           import android.widget.FrameLayout;
           import android.widget.LinearLayout;
+          import android.widget.SeekBar;
           import android.widget.TextView;
           import android.widget.Toast;
 
@@ -1778,10 +1774,10 @@ jobs:
           public class FloatingService extends Service {
 
               private static final String CHANNEL_ID =
-                      "floating_input_channel_v13";
+                      "floating_input_channel_v14";
 
               private static final int NOTIFICATION_ID =
-                      1013;
+                      1014;
 
               private WindowManager windowManager;
 
@@ -1791,9 +1787,13 @@ jobs:
 
               private TextView alphaText;
 
+              private SeekBar alphaSeekBar;
+
               private TextView resizeHandle;
 
               private TextView moveHandle;
+
+              private TextView colorButton;
 
               private WindowManager.LayoutParams params;
 
@@ -1802,26 +1802,48 @@ jobs:
               private boolean overlayHidden =
                       false;
 
-              private final float[] alphaLevels = {
-                      0.90f,
-                      0.70f,
-                      0.50f,
-                      0.40f,
-                      0.30f,
-                      0.20f
-              };
+              /*
+               * V14：
+               * 透明度范围5%-100%。
+               */
+              private int alphaPercent =
+                      90;
 
-              private final String[] alphaLabels = {
-                      "90%",
-                      "70%",
-                      "50%",
-                      "40%",
-                      "30%",
-                      "20%"
-              };
-
-              private int alphaIndex =
+              /*
+               * 字体颜色顺序：
+               *
+               * 0 黑
+               * 1 红
+               * 2 绿
+               * 3 蓝
+               * 4 黄
+               */
+              private int fontColorIndex =
                       0;
+
+              private final int[] fontColors = {
+                      Color.BLACK,
+                      Color.RED,
+                      Color.rgb(
+                              0,
+                              150,
+                              0
+                      ),
+                      Color.BLUE,
+                      Color.rgb(
+                              230,
+                              180,
+                              0
+                      )
+              };
+
+              private final String[] fontColorNames = {
+                      "黑",
+                      "红",
+                      "绿",
+                      "蓝",
+                      "黄"
+              };
 
               private float moveDownRawX;
 
@@ -1901,15 +1923,28 @@ jobs:
                           )
                       ) {
 
-                          alphaIndex =
-                                  0;
+                          /*
+                           * 每次重新打开APP：
+                           * 默认90%透明度。
+                           */
+                          alphaPercent =
+                                  90;
 
                           prefs.edit()
                                   .putInt(
-                                          "alpha",
-                                          0
+                                          "alpha_percent",
+                                          90
                                   )
                                   .apply();
+
+                          if (
+                              alphaSeekBar != null
+                          ) {
+
+                              alphaSeekBar.setProgress(
+                                      alphaPercent - 5
+                              );
+                          }
 
                           showOverlay();
 
@@ -1923,9 +1958,6 @@ jobs:
                           )
                       ) {
 
-                          /*
-                           * 从历史记录恢复悬浮窗。
-                           */
                           showOverlay();
 
                           String restore =
@@ -2139,8 +2171,12 @@ jobs:
                           text
                   );
 
+                  /*
+                   * 5个按钮以后稍微缩小字体，
+                   * 防止手机屏幕上文字挤在一起。
+                   */
                   button.setTextSize(
-                          14
+                          12
                   );
 
                   button.setGravity(
@@ -2153,6 +2189,10 @@ jobs:
                                   35,
                                   35
                           )
+                  );
+
+                  button.setSingleLine(
+                          true
                   );
 
                   button.setBackground(
@@ -2236,6 +2276,11 @@ jobs:
                           )
                   );
 
+                  /*
+                   * ==============================
+                   * 顶部5个按钮
+                   * ==============================
+                   */
                   LinearLayout topBar =
                           new LinearLayout(
                                   this
@@ -2260,6 +2305,11 @@ jobs:
                                   "历史"
                           );
 
+                  colorButton =
+                          createTopButton(
+                                  "字体:黑"
+                          );
+
                   moveHandle =
                           createTopButton(
                                   "⇕移动"
@@ -2282,6 +2332,11 @@ jobs:
 
                   addTopButton(
                           topBar,
+                          colorButton
+                  );
+
+                  addTopButton(
+                          topBar,
                           moveHandle
                   );
 
@@ -2293,6 +2348,11 @@ jobs:
                           )
                   );
 
+                  /*
+                   * ==============================
+                   * 输入框
+                   * ==============================
+                   */
                   FrameLayout inputFrame =
                           new FrameLayout(
                                   this
@@ -2316,8 +2376,30 @@ jobs:
                           Gravity.START
                   );
 
+                  /*
+                   * 读取上一次字体颜色。
+                   * 默认黑色。
+                   */
+                  fontColorIndex =
+                          prefs.getInt(
+                                  "font_color_index",
+                                  0
+                          );
+
+                  if (
+                      fontColorIndex < 0 ||
+                      fontColorIndex >=
+                      fontColors.length
+                  ) {
+
+                      fontColorIndex =
+                              0;
+                  }
+
                   inputBox.setTextColor(
-                          Color.BLACK
+                          fontColors[
+                                  fontColorIndex
+                          ]
                   );
 
                   inputBox.setHintTextColor(
@@ -2364,12 +2446,6 @@ jobs:
                           )
                   );
 
-                  /*
-                   * 回车：
-                   *
-                   * 是网址 -> 直接打开
-                   * 不是网址 -> 百度搜索
-                   */
                   inputBox.setOnEditorActionListener(
                           (v, actionId, event) -> {
 
@@ -2415,6 +2491,9 @@ jobs:
                           )
                   );
 
+                  /*
+                   * 右下角缩放 / 换行按钮
+                   */
                   resizeHandle =
                           new TextView(
                                   this
@@ -2475,43 +2554,91 @@ jobs:
                           )
                   );
 
-                  LinearLayout controls =
+                  /*
+                   * ==============================
+                   * V14透明度滑块
+                   * ==============================
+                   */
+                  LinearLayout alphaArea =
                           new LinearLayout(
                                   this
                           );
 
-                  controls.setOrientation(
+                  alphaArea.setOrientation(
                           LinearLayout.HORIZONTAL
                   );
 
-                  controls.setGravity(
+                  alphaArea.setGravity(
                           Gravity.CENTER_VERTICAL
                   );
 
-                  Button minus =
-                          new Button(
+                  alphaArea.setPadding(
+                          dp(6),
+                          0,
+                          dp(6),
+                          0
+                  );
+
+                  TextView alphaTitle =
+                          new TextView(
                                   this
                           );
 
-                  minus.setText(
-                          "−"
+                  alphaTitle.setText(
+                          "透明度"
                   );
 
-                  minus.setTextSize(
-                          23
+                  alphaTitle.setTextSize(
+                          14
                   );
 
-                  Button plus =
-                          new Button(
+                  alphaTitle.setTextColor(
+                          Color.DKGRAY
+                  );
+
+                  alphaTitle.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  alphaSeekBar =
+                          new SeekBar(
                                   this
                           );
 
-                  plus.setText(
-                          "+"
+                  /*
+                   * SeekBar：
+                   *
+                   * progress 0 = 5%
+                   * progress 95 = 100%
+                   */
+                  alphaSeekBar.setMax(
+                          95
                   );
 
-                  plus.setTextSize(
-                          23
+                  alphaPercent =
+                          prefs.getInt(
+                                  "alpha_percent",
+                                  90
+                          );
+
+                  if (
+                      alphaPercent < 5
+                  ) {
+
+                      alphaPercent =
+                              5;
+                  }
+
+                  if (
+                      alphaPercent > 100
+                  ) {
+
+                      alphaPercent =
+                              100;
+                  }
+
+                  alphaSeekBar.setProgress(
+                          alphaPercent - 5
                   );
 
                   alphaText =
@@ -2519,72 +2646,96 @@ jobs:
                                   this
                           );
 
+                  alphaText.setTextSize(
+                          14
+                  );
+
+                  alphaText.setTextColor(
+                          Color.DKGRAY
+                  );
+
                   alphaText.setGravity(
                           Gravity.CENTER
                   );
 
-                  alphaText.setTextSize(
-                          16
+                  alphaText.setText(
+                          alphaPercent +
+                          "%"
                   );
 
-                  minus.setOnClickListener(
-                          v -> {
+                  alphaSeekBar.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
 
-                      if (
-                          alphaIndex <
-                          alphaLevels.length - 1
-                      ) {
+                              @Override
+                              public void onProgressChanged(
+                                      SeekBar seekBar,
+                                      int progress,
+                                      boolean fromUser
+                              ) {
 
-                          alphaIndex++;
+                                  /*
+                                   * 0-95
+                                   * 转换成5-100
+                                   */
+                                  alphaPercent =
+                                          progress + 5;
 
-                          updateAlpha();
+                                  updateAlpha();
 
-                          saveSettings();
-                      }
-                  });
+                                  if (
+                                      alphaText != null
+                                  ) {
 
-                  plus.setOnClickListener(
-                          v -> {
+                                      alphaText.setText(
+                                              alphaPercent +
+                                              "%"
+                                      );
+                                  }
+                              }
 
-                      if (
-                          alphaIndex > 0
-                      ) {
+                              @Override
+                              public void onStartTrackingTouch(
+                                      SeekBar seekBar
+                              ) {
+                              }
 
-                          alphaIndex--;
+                              @Override
+                              public void onStopTrackingTouch(
+                                      SeekBar seekBar
+                              ) {
 
-                          updateAlpha();
+                                  saveSettings();
+                              }
+                          }
+                  );
 
-                          saveSettings();
-                      }
-                  });
-
-                  controls.addView(
-                          minus,
+                  alphaArea.addView(
+                          alphaTitle,
                           new LinearLayout.LayoutParams(
-                                  dp(65),
-                                  dp(50)
+                                  dp(58),
+                                  dp(52)
                           )
                   );
 
-                  controls.addView(
-                          alphaText,
+                  alphaArea.addView(
+                          alphaSeekBar,
                           new LinearLayout.LayoutParams(
                                   0,
-                                  dp(50),
+                                  dp(52),
                                   1f
                           )
                   );
 
-                  controls.addView(
-                          plus,
+                  alphaArea.addView(
+                          alphaText,
                           new LinearLayout.LayoutParams(
-                                  dp(65),
-                                  dp(50)
+                                  dp(52),
+                                  dp(52)
                           )
                   );
 
                   rootView.addView(
-                          controls,
+                          alphaArea,
                           new LinearLayout.LayoutParams(
                                   ViewGroup.LayoutParams.MATCH_PARENT,
                                   dp(55)
@@ -2597,27 +2748,11 @@ jobs:
                                   ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                                   : WindowManager.LayoutParams.TYPE_PHONE;
 
-                  alphaIndex =
-                          prefs.getInt(
-                                  "alpha",
-                                  0
-                          );
-
-                  if (
-                      alphaIndex < 0 ||
-                      alphaIndex >=
-                      alphaLevels.length
-                  ) {
-
-                      alphaIndex =
-                              0;
-                  }
-
                   params =
                           new WindowManager.LayoutParams(
                                   prefs.getInt(
                                           "width",
-                                          dp(330)
+                                          dp(350)
                                   ),
                                   prefs.getInt(
                                           "height",
@@ -2673,6 +2808,8 @@ jobs:
 
                   updateAlpha();
 
+                  updateFontColorButton();
+
                   setupClose(
                           closeButton
                   );
@@ -2685,11 +2822,126 @@ jobs:
                           historyButton
                   );
 
+                  setupColorButton();
+
                   setupMove();
 
                   setupResize();
 
                   showKeyboard();
+              }
+
+              /*
+               * ==============================
+               * 字体颜色切换
+               * ==============================
+               */
+              private void setupColorButton() {
+
+                  if (
+                      colorButton == null
+                  ) {
+
+                      return;
+                  }
+
+                  colorButton.setOnClickListener(
+                          v -> {
+
+                      /*
+                       * 黑 -> 红 -> 绿 -> 蓝 -> 黄 -> 黑
+                       */
+                      fontColorIndex++;
+
+                      if (
+                          fontColorIndex >=
+                          fontColors.length
+                      ) {
+
+                          fontColorIndex =
+                                  0;
+                      }
+
+                      if (
+                          inputBox != null
+                      ) {
+
+                          inputBox.setTextColor(
+                                  fontColors[
+                                          fontColorIndex
+                                  ]
+                          );
+                      }
+
+                      updateFontColorButton();
+
+                      prefs.edit()
+                              .putInt(
+                                      "font_color_index",
+                                      fontColorIndex
+                              )
+                              .apply();
+                  });
+              }
+
+              private void updateFontColorButton() {
+
+                  if (
+                      colorButton == null
+                  ) {
+
+                      return;
+                  }
+
+                  colorButton.setText(
+                          "字体:" +
+                          fontColorNames[
+                                  fontColorIndex
+                          ]
+                  );
+
+                  /*
+                   * 按钮本身文字也显示对应颜色，
+                   * 更方便看当前颜色。
+                   */
+                  colorButton.setTextColor(
+                          fontColors[
+                                  fontColorIndex
+                          ]
+                  );
+              }
+
+              /*
+               * ==============================
+               * 透明度
+               * ==============================
+               */
+              private void updateAlpha() {
+
+                  if (
+                      rootView == null
+                  ) {
+
+                      return;
+                  }
+
+                  float alpha =
+                          alphaPercent /
+                          100.0f;
+
+                  rootView.setAlpha(
+                          alpha
+                  );
+
+                  if (
+                      alphaText != null
+                  ) {
+
+                      alphaText.setText(
+                              alphaPercent +
+                              "%"
+                      );
+                  }
               }
 
               private void hideOverlay() {
@@ -2842,13 +3094,6 @@ jobs:
                   }
               }
 
-              /*
-               * 点击历史：
-               *
-               * 保存当前内容
-               * -> 隐藏悬浮窗
-               * -> 打开历史页面
-               */
               private void setupHistory(
                       TextView button
               ) {
@@ -2860,6 +3105,10 @@ jobs:
 
                       saveSettings();
 
+                      /*
+                       * 点击历史以后，
+                       * 先隐藏悬浮窗。
+                       */
                       hideOverlay();
 
                       Intent intent =
@@ -2914,14 +3163,14 @@ jobs:
 
               /*
                * ==============================
-               * V13 核心
+               * 智能打开
                * ==============================
                *
-               * 输入网址：
+               * 是网址：
                * 直接打开网址
                *
-               * 输入普通文字：
-               * 自动百度搜索
+               * 非网址：
+               * 百度搜索
                */
               private void openOrSearchAndExit() {
 
@@ -2945,8 +3194,8 @@ jobs:
                   }
 
                   /*
-                   * 如果输入多行，
-                   * 回车处理第一行。
+                   * 如果包含多行，
+                   * 搜索第一行。
                    */
                   if (
                       text.contains(
@@ -3010,15 +3259,6 @@ jobs:
                               );
                   }
 
-                  /*
-                   * 判断是否像网址。
-                   *
-                   * taobao.com
-                   * www.baidu.com
-                   * 1688.com
-                   * jd.com
-                   * https://xxx.com
-                   */
                   boolean looksLikeUrl =
                           hasHttp ||
                           (
@@ -3040,8 +3280,7 @@ jobs:
                   ) {
 
                       /*
-                       * 是网址：
-                       * 直接打开。
+                       * 是网址。
                        */
                       if (
                           hasHttp
@@ -3066,8 +3305,8 @@ jobs:
                   } else {
 
                       /*
-                       * 不是网址：
-                       * 自动百度搜索。
+                       * 非网址：
+                       * 百度搜索。
                        */
                       try {
 
@@ -3118,37 +3357,25 @@ jobs:
                               Intent.FLAG_ACTIVITY_NEW_TASK
                       );
 
-                      /*
-                       * 打开系统浏览器。
-                       */
                       startActivity(
                               browser
                       );
 
-                      /*
-                       * 保存悬浮窗位置和大小。
-                       */
                       saveSettings();
 
                       /*
-                       * 下次打开恢复90%。
+                       * 下次重新打开APP，
+                       * 透明度重新从90%开始。
                        */
                       prefs.edit()
                               .putInt(
-                                      "alpha",
-                                      0
+                                      "alpha_percent",
+                                      90
                               )
                               .apply();
 
-                      /*
-                       * 收起输入法。
-                       */
                       hideKeyboard();
 
-                      /*
-                       * 关闭悬浮输入APP。
-                       * 浏览器不会关闭。
-                       */
                       closeAppTasks();
 
                       stopSelf();
@@ -3171,10 +3398,14 @@ jobs:
 
                   saveSettings();
 
+                  /*
+                   * 下次打开：
+                   * 默认90%。
+                   */
                   prefs.edit()
                           .putInt(
-                                  "alpha",
-                                  0
+                                  "alpha_percent",
+                                  90
                           )
                           .apply();
 
@@ -3214,6 +3445,11 @@ jobs:
                   }
               }
 
+              /*
+               * ==============================
+               * 移动悬浮窗
+               * ==============================
+               */
               private void setupMove() {
 
                   moveHandle.setOnTouchListener(
@@ -3282,6 +3518,11 @@ jobs:
                   });
               }
 
+              /*
+               * ==============================
+               * 调整大小
+               * ==============================
+               */
               private void setupResize() {
 
                   resizeHandle.setOnTouchListener(
@@ -3325,8 +3566,12 @@ jobs:
                                       );
 
                               if (
-                                  Math.abs(dx) > dp(12) ||
-                                  Math.abs(dy) > dp(12)
+                                  Math.abs(
+                                          dx
+                                  ) > dp(12) ||
+                                  Math.abs(
+                                          dy
+                                  ) > dp(12)
                               ) {
 
                                   resizeMoved =
@@ -3349,7 +3594,7 @@ jobs:
 
                                   params.width =
                                           Math.max(
-                                                  dp(230),
+                                                  dp(250),
                                                   Math.min(
                                                           startWidth + dx,
                                                           screenWidth
@@ -3358,7 +3603,7 @@ jobs:
 
                                   params.height =
                                           Math.max(
-                                                  dp(210),
+                                                  dp(220),
                                                   Math.min(
                                                           startHeight + dy,
                                                           screenHeight
@@ -3412,8 +3657,8 @@ jobs:
               }
 
               /*
-               * 单击 ↘：
-               * 继续作为手动换行按钮。
+               * 单击右下角 ↘：
+               * 插入换行。
                */
               private void insertNewLine() {
 
@@ -3472,33 +3717,11 @@ jobs:
                   showKeyboard();
               }
 
-              private void updateAlpha() {
-
-                  if (
-                      rootView == null
-                  ) {
-
-                      return;
-                  }
-
-                  rootView.setAlpha(
-                          alphaLevels[
-                                  alphaIndex
-                          ]
-                  );
-
-                  if (
-                      alphaText != null
-                  ) {
-
-                      alphaText.setText(
-                              alphaLabels[
-                                      alphaIndex
-                              ]
-                      );
-                  }
-              }
-
+              /*
+               * ==============================
+               * 保存设置
+               * ==============================
+               */
               private void saveSettings() {
 
                   if (
@@ -3526,8 +3749,12 @@ jobs:
                                   params.height
                           )
                           .putInt(
-                                  "alpha",
-                                  alphaIndex
+                                  "alpha_percent",
+                                  alphaPercent
+                          )
+                          .putInt(
+                                  "font_color_index",
+                                  fontColorIndex
                           )
                           .apply();
               }
@@ -3539,6 +3766,12 @@ jobs:
                       params != null
                   ) {
 
+                      /*
+                       * 这里只保存位置、大小、字体颜色。
+                       *
+                       * 透明度在正常关闭时已经设置为
+                       * 下次90%。
+                       */
                       prefs.edit()
                               .putInt(
                                       "x",
@@ -3555,6 +3788,10 @@ jobs:
                               .putInt(
                                       "height",
                                       params.height
+                              )
+                              .putInt(
+                                      "font_color_index",
+                                      fontColorIndex
                               )
                               .apply();
                   }
@@ -3573,8 +3810,8 @@ jobs:
                           );
 
                       } catch (
-                              Exception ignored
-                      ) {
+                                      Exception ignored
+                              ) {
                       }
                   }
 
@@ -3626,11 +3863,11 @@ jobs:
       - name: Prepare APK
         shell: bash
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V13.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V14.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V13-APK
-          path: FloatingInputApp-V13.apk
+          name: FloatingInputApp-V14-APK
+          path: FloatingInputApp-V14.apk
           retention-days: 30
