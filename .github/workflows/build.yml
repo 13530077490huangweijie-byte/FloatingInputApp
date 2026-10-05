@@ -2422,4 +2422,890 @@ jobs:
                           resizeLp
                   );
 
-                 
+                  rootView.addView(
+                          inputFrame,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  0,
+                                  1f
+                          )
+                  );
+
+                  LinearLayout controls =
+                          new LinearLayout(
+                                  this
+                          );
+
+                  controls.setOrientation(
+                          LinearLayout.HORIZONTAL
+                  );
+
+                  controls.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  Button minus =
+                          new Button(
+                                  this
+                          );
+
+                  minus.setText(
+                          "−"
+                  );
+
+                  minus.setTextSize(
+                          23
+                  );
+
+                  Button plus =
+                          new Button(
+                                  this
+                          );
+
+                  plus.setText(
+                          "+"
+                  );
+
+                  plus.setTextSize(
+                          23
+                  );
+
+                  alphaText =
+                          new TextView(
+                                  this
+                          );
+
+                  alphaText.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  alphaText.setTextSize(
+                          16
+                  );
+
+                  minus.setOnClickListener(
+                          v -> {
+
+                      if (
+                          alphaIndex <
+                          alphaLevels.length - 1
+                      ) {
+
+                          alphaIndex++;
+
+                          updateAlpha();
+
+                          saveSettings();
+                      }
+                  });
+
+                  plus.setOnClickListener(
+                          v -> {
+
+                      if (
+                          alphaIndex > 0
+                      ) {
+
+                          alphaIndex--;
+
+                          updateAlpha();
+
+                          saveSettings();
+                      }
+                  });
+
+                  controls.addView(
+                          minus,
+                          new LinearLayout.LayoutParams(
+                                  dp(65),
+                                  dp(50)
+                          )
+                  );
+
+                  controls.addView(
+                          alphaText,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(50),
+                                  1f
+                          )
+                  );
+
+                  controls.addView(
+                          plus,
+                          new LinearLayout.LayoutParams(
+                                  dp(65),
+                                  dp(50)
+                          )
+                  );
+
+                  rootView.addView(
+                          controls,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  dp(55)
+                          )
+                  );
+
+                  int type =
+                          Build.VERSION.SDK_INT >=
+                          Build.VERSION_CODES.O
+                                  ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                                  : WindowManager.LayoutParams.TYPE_PHONE;
+
+                  alphaIndex =
+                          prefs.getInt(
+                                  "alpha",
+                                  0
+                          );
+
+                  if (
+                      alphaIndex < 0 ||
+                      alphaIndex >=
+                      alphaLevels.length
+                  ) {
+
+                      alphaIndex =
+                              0;
+                  }
+
+                  params =
+                          new WindowManager.LayoutParams(
+                                  prefs.getInt(
+                                          "width",
+                                          dp(330)
+                                  ),
+                                  prefs.getInt(
+                                          "height",
+                                          dp(300)
+                                  ),
+                                  type,
+                                  WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
+                                  WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                                  PixelFormat.TRANSLUCENT
+                          );
+
+                  params.gravity =
+                          Gravity.TOP |
+                          Gravity.START;
+
+                  params.x =
+                          prefs.getInt(
+                                  "x",
+                                  dp(25)
+                          );
+
+                  params.y =
+                          prefs.getInt(
+                                  "y",
+                                  dp(100)
+                          );
+
+                  params.softInputMode =
+                          WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE |
+                          WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
+
+                  try {
+
+                      windowManager.addView(
+                              rootView,
+                              params
+                      );
+
+                  } catch (
+                          Exception e
+                  ) {
+
+                      rootView =
+                              null;
+
+                      stopSelf();
+
+                      return;
+                  }
+
+                  updateAlpha();
+
+                  setupClose(
+                          closeButton
+                  );
+
+                  setupSettings(
+                          settingsButton
+                  );
+
+                  setupHistory(
+                          historyButton
+                  );
+
+                  setupMove();
+
+                  setupResize();
+
+                  showKeyboard();
+              }
+
+              private void saveCurrentInputHistory() {
+
+                  if (
+                      inputBox == null
+                  ) {
+
+                      return;
+                  }
+
+                  String text =
+                          inputBox
+                                  .getText()
+                                  .toString()
+                                  .trim();
+
+                  if (
+                      !text.isEmpty()
+                  ) {
+
+                      HistoryManager.add(
+                              this,
+                              text,
+                              "输入"
+                      );
+                  }
+              }
+
+              private void setupHistory(
+                      TextView button
+              ) {
+
+                  button.setOnClickListener(
+                          v -> {
+
+                      saveCurrentInputHistory();
+
+                      Intent intent =
+                              new Intent(
+                                      this,
+                                      HistoryActivity.class
+                              );
+
+                      intent.addFlags(
+                              Intent.FLAG_ACTIVITY_NEW_TASK
+                      );
+
+                      startActivity(
+                              intent
+                      );
+                  });
+              }
+
+              private void setupSettings(
+                      TextView button
+              ) {
+
+                  button.setOnClickListener(
+                          v -> {
+
+                      saveCurrentInputHistory();
+
+                      Intent intent =
+                              new Intent(
+                                      this,
+                                      SettingsActivity.class
+                              );
+
+                      intent.addFlags(
+                              Intent.FLAG_ACTIVITY_NEW_TASK
+                      );
+
+                      startActivity(
+                              intent
+                      );
+                  });
+              }
+
+              private void setupClose(
+                      TextView button
+              ) {
+
+                  button.setOnClickListener(
+                          v -> closeEntireApp()
+                  );
+              }
+
+              private void closeEntireApp() {
+
+                  saveCurrentInputHistory();
+
+                  saveSettings();
+
+                  prefs.edit()
+                          .putInt(
+                                  "alpha",
+                                  0
+                          )
+                          .apply();
+
+                  hideKeyboard();
+
+                  closeAppTasks();
+
+                  stopSelf();
+              }
+
+              /*
+               * V10 核心修改：
+               *
+               * 原Google搜索：
+               * google.com/search?q=
+               *
+               * 改为百度：
+               * baidu.com/s?wd=
+               */
+              private void searchAndExit() {
+
+                  String text =
+                          inputBox
+                                  .getText()
+                                  .toString()
+                                  .trim();
+
+                  if (
+                      text.isEmpty()
+                  ) {
+
+                      Toast.makeText(
+                              this,
+                              "请先输入搜索内容",
+                              Toast.LENGTH_SHORT
+                      ).show();
+
+                      return;
+                  }
+
+                  HistoryManager.add(
+                          this,
+                          text,
+                          "百度搜索"
+                  );
+
+                  try {
+
+                      String encoded =
+                              URLEncoder.encode(
+                                      text,
+                                      "UTF-8"
+                              );
+
+                      /*
+                       * 百度搜索地址
+                       */
+                      Uri uri =
+                              Uri.parse(
+                                      "https://www.baidu.com/s?wd=" +
+                                      encoded
+                              );
+
+                      Intent browser =
+                              new Intent(
+                                      Intent.ACTION_VIEW,
+                                      uri
+                              );
+
+                      browser.addFlags(
+                              Intent.FLAG_ACTIVITY_NEW_TASK
+                      );
+
+                      /*
+                       * 打开浏览器进入百度搜索结果。
+                       */
+                      startActivity(
+                              browser
+                      );
+
+                      /*
+                       * 保存悬浮窗位置和大小。
+                       */
+                      saveSettings();
+
+                      /*
+                       * 下次打开恢复90%透明度。
+                       */
+                      prefs.edit()
+                              .putInt(
+                                      "alpha",
+                                      0
+                              )
+                              .apply();
+
+                      /*
+                       * 收起输入法。
+                       */
+                      hideKeyboard();
+
+                      /*
+                       * 关闭悬浮窗APP任务。
+                       */
+                      closeAppTasks();
+
+                      /*
+                       * 停止悬浮服务。
+                       */
+                      stopSelf();
+
+                  } catch (
+                          Exception e
+                  ) {
+
+                      Toast.makeText(
+                              this,
+                              "无法打开百度搜索",
+                              Toast.LENGTH_SHORT
+                      ).show();
+                  }
+              }
+
+              private void closeAppTasks() {
+
+                  try {
+
+                      ActivityManager manager =
+                              (ActivityManager)
+                              getSystemService(
+                                      Context.ACTIVITY_SERVICE
+                              );
+
+                      if (
+                          manager != null
+                      ) {
+
+                          for (
+                              ActivityManager.AppTask task :
+                              manager.getAppTasks()
+                          ) {
+
+                              task.finishAndRemoveTask();
+                          }
+                      }
+
+                  } catch (
+                          Exception ignored
+                  ) {
+                  }
+              }
+
+              private void setupMove() {
+
+                  moveHandle.setOnTouchListener(
+                          (view, event) -> {
+
+                      switch (
+                              event.getActionMasked()
+                      ) {
+
+                          case MotionEvent.ACTION_DOWN:
+
+                              moveDownRawX =
+                                      event.getRawX();
+
+                              moveDownRawY =
+                                      event.getRawY();
+
+                              moveStartX =
+                                      params.x;
+
+                              moveStartY =
+                                      params.y;
+
+                              return true;
+
+                          case MotionEvent.ACTION_MOVE:
+
+                              params.x =
+                                      moveStartX +
+                                      (int) (
+                                          event.getRawX() -
+                                          moveDownRawX
+                                      );
+
+                              params.y =
+                                      moveStartY +
+                                      (int) (
+                                          event.getRawY() -
+                                          moveDownRawY
+                                      );
+
+                              try {
+
+                                  windowManager
+                                          .updateViewLayout(
+                                                  rootView,
+                                                  params
+                                          );
+
+                              } catch (
+                                  Exception ignored
+                              ) {
+                              }
+
+                              return true;
+
+                          case MotionEvent.ACTION_UP:
+
+                          case MotionEvent.ACTION_CANCEL:
+
+                              saveSettings();
+
+                              return true;
+                      }
+
+                      return true;
+                  });
+              }
+
+              private void setupResize() {
+
+                  resizeHandle.setOnTouchListener(
+                          (view, event) -> {
+
+                      switch (
+                              event.getActionMasked()
+                      ) {
+
+                          case MotionEvent.ACTION_DOWN:
+
+                              resizeRawX =
+                                      event.getRawX();
+
+                              resizeRawY =
+                                      event.getRawY();
+
+                              startWidth =
+                                      params.width;
+
+                              startHeight =
+                                      params.height;
+
+                              resizeMoved =
+                                      false;
+
+                              return true;
+
+                          case MotionEvent.ACTION_MOVE:
+
+                              int dx =
+                                      (int) (
+                                          event.getRawX() -
+                                          resizeRawX
+                                      );
+
+                              int dy =
+                                      (int) (
+                                          event.getRawY() -
+                                          resizeRawY
+                                      );
+
+                              if (
+                                  Math.abs(dx) > dp(12) ||
+                                  Math.abs(dy) > dp(12)
+                              ) {
+
+                                  resizeMoved =
+                                          true;
+                              }
+
+                              if (
+                                  resizeMoved
+                              ) {
+
+                                  int sw =
+                                          getResources()
+                                                  .getDisplayMetrics()
+                                                  .widthPixels;
+
+                                  int sh =
+                                          getResources()
+                                                  .getDisplayMetrics()
+                                                  .heightPixels;
+
+                                  params.width =
+                                          Math.max(
+                                                  dp(230),
+                                                  Math.min(
+                                                          startWidth + dx,
+                                                          sw
+                                                  )
+                                          );
+
+                                  params.height =
+                                          Math.max(
+                                                  dp(210),
+                                                  Math.min(
+                                                          startHeight + dy,
+                                                          sh
+                                                  )
+                                          );
+
+                                  try {
+
+                                      windowManager
+                                              .updateViewLayout(
+                                                      rootView,
+                                                      params
+                                              );
+
+                                  } catch (
+                                      Exception ignored
+                                  ) {
+                                  }
+                              }
+
+                              return true;
+
+                          case MotionEvent.ACTION_UP:
+
+                              if (
+                                  resizeMoved
+                              ) {
+
+                                  saveSettings();
+
+                              } else {
+
+                                  insertNewLine();
+                              }
+
+                              return true;
+
+                          case MotionEvent.ACTION_CANCEL:
+
+                              if (
+                                  resizeMoved
+                              ) {
+
+                                  saveSettings();
+                              }
+
+                              return true;
+                      }
+
+                      return false;
+                  });
+              }
+
+              private void insertNewLine() {
+
+                  Editable editable =
+                          inputBox.getText();
+
+                  int start =
+                          inputBox.getSelectionStart();
+
+                  int end =
+                          inputBox.getSelectionEnd();
+
+                  if (
+                      start < 0
+                  ) {
+
+                      start =
+                              editable.length();
+                  }
+
+                  if (
+                      end < 0
+                  ) {
+
+                      end =
+                              start;
+                  }
+
+                  int min =
+                          Math.min(
+                                  start,
+                                  end
+                          );
+
+                  int max =
+                          Math.max(
+                                  start,
+                                  end
+                          );
+
+                  editable.replace(
+                          min,
+                          max,
+                          "\n"
+                  );
+
+                  inputBox.setSelection(
+                          Math.min(
+                                  min + 1,
+                                  editable.length()
+                          )
+                  );
+
+                  inputBox.requestFocus();
+
+                  showKeyboard();
+              }
+
+              private void updateAlpha() {
+
+                  if (
+                      rootView == null
+                  ) {
+
+                      return;
+                  }
+
+                  rootView.setAlpha(
+                          alphaLevels[
+                                  alphaIndex
+                          ]
+                  );
+
+                  alphaText.setText(
+                          alphaLabels[
+                                  alphaIndex
+                          ]
+                  );
+              }
+
+              private void saveSettings() {
+
+                  if (
+                      params == null
+                  ) {
+
+                      return;
+                  }
+
+                  prefs.edit()
+                          .putInt(
+                                  "x",
+                                  params.x
+                          )
+                          .putInt(
+                                  "y",
+                                  params.y
+                          )
+                          .putInt(
+                                  "width",
+                                  params.width
+                          )
+                          .putInt(
+                                  "height",
+                                  params.height
+                          )
+                          .putInt(
+                                  "alpha",
+                                  alphaIndex
+                          )
+                          .apply();
+              }
+
+              @Override
+              public void onDestroy() {
+
+                  /*
+                   * 保存位置和尺寸。
+                   * 不覆盖关闭时设置好的90%透明度。
+                   */
+                  if (
+                      params != null
+                  ) {
+
+                      prefs.edit()
+                              .putInt(
+                                      "x",
+                                      params.x
+                              )
+                              .putInt(
+                                      "y",
+                                      params.y
+                              )
+                              .putInt(
+                                      "width",
+                                      params.width
+                              )
+                              .putInt(
+                                      "height",
+                                      params.height
+                              )
+                              .apply();
+                  }
+
+                  hideKeyboard();
+
+                  if (
+                      windowManager != null &&
+                      rootView != null
+                  ) {
+
+                      try {
+
+                          windowManager.removeView(
+                                  rootView
+                          );
+
+                      } catch (
+                          Exception ignored
+                      ) {
+                      }
+                  }
+
+                  rootView =
+                          null;
+
+                  if (
+                      Build.VERSION.SDK_INT >=
+                      Build.VERSION_CODES.N
+                  ) {
+
+                      stopForeground(
+                              STOP_FOREGROUND_REMOVE
+                      );
+
+                  } else {
+
+                      stopForeground(
+                              true
+                      );
+                  }
+
+                  super.onDestroy();
+              }
+
+              @Override
+              public IBinder onBind(
+                      Intent intent
+              ) {
+
+                  return null;
+              }
+          }
+          EOF
+
+      - name: Install Gradle
+        shell: bash
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
+          unzip -q gradle-8.9-bin.zip
+          ./gradle-8.9/bin/gradle wrapper --gradle-version 8.9
+          chmod +x gradlew
+
+      - name: Build APK
+        shell: bash
+        run: |
+          ./gradlew assembleDebug
+
+      - name: Prepare APK
+        shell: bash
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V10.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FloatingInputApp-V10-APK
+          path: FloatingInputApp-V10.apk
+          retention-days: 30
