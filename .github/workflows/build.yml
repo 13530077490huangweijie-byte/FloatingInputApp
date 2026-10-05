@@ -1,4 +1,4 @@
-name: Build Floating Input APK V15
+name: Build Floating Input APK V15.1
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -24,6 +24,8 @@ jobs:
         shell: bash
         run: |
           rm -rf app
+          rm -f settings.gradle build.gradle gradle.properties
+
           mkdir -p app/src/main/java/com/jiexin/floatinginput
           mkdir -p app/src/main/res/values
 
@@ -72,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 15
-                  versionName "15.0"
+                  versionCode 151
+                  versionName "15.1"
               }
 
               compileOptions {
@@ -90,9 +92,9 @@ jobs:
               <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
                   <item name="android:fontFamily">sans</item>
                   <item name="android:colorAccent">#3F51B5</item>
-                  <item name="android:windowLightStatusBar">true</item>
                   <item name="android:statusBarColor">#FFFFFF</item>
                   <item name="android:navigationBarColor">#FFFFFF</item>
+                  <item name="android:windowLightStatusBar">true</item>
               </style>
 
               <style name="TransparentTheme" parent="android:style/Theme.Material.Light.NoActionBar">
@@ -157,12 +159,14 @@ jobs:
                       android:exported="false" />
 
                   <activity
-                      android:name=".SettingsActivity"
+                      android:name=".HistoryActivity"
+                      android:theme="@style/AppTheme"
                       android:screenOrientation="portrait"
                       android:exported="false" />
 
                   <activity
-                      android:name=".HistoryActivity"
+                      android:name=".SettingsActivity"
+                      android:theme="@style/AppTheme"
                       android:screenOrientation="portrait"
                       android:exported="false" />
 
@@ -173,7 +177,7 @@ jobs:
 
                       <property
                           android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                          android:value="User controlled floating input overlay with step and weather display" />
+                          android:value="Floating input overlay with steps and weather" />
 
                   </service>
 
@@ -197,11 +201,3769 @@ jobs:
           public class HistoryManager {
 
               public static class Item {
+
                   public String text;
                   public String type;
                   public long time;
 
-                  public Item(String text, String type, long time) {
+                  public Item(
+                          String text,
+                          String type,
+                          long time
+                  ) {
                       this.text = text;
                       this.type = type;
-     
+                      this.time = time;
+                  }
+              }
+
+              private static final String PREF = "history_data";
+              private static final String KEY = "items";
+
+              public static synchronized List<Item> load(
+                      Context context
+              ) {
+
+                  List<Item> result = new ArrayList<>();
+
+                  SharedPreferences prefs =
+                          context.getSharedPreferences(
+                                  PREF,
+                                  Context.MODE_PRIVATE
+                          );
+
+                  String raw =
+                          prefs.getString(KEY, "[]");
+
+                  try {
+
+                      JSONArray array =
+                              new JSONArray(raw);
+
+                      for (
+                          int i = 0;
+                          i < array.length();
+                          i++
+                      ) {
+
+                          JSONObject object =
+                                  array.getJSONObject(i);
+
+                          result.add(
+                                  new Item(
+                                          object.optString("text", ""),
+                                          object.optString("type", "输入"),
+                                          object.optLong("time", 0)
+                                  )
+                          );
+                      }
+
+                  } catch (Exception ignored) {
+                  }
+
+                  return result;
+              }
+
+              public static synchronized void save(
+                      Context context,
+                      List<Item> items
+              ) {
+
+                  JSONArray array = new JSONArray();
+
+                  try {
+
+                      for (Item item : items) {
+
+                          JSONObject object =
+                                  new JSONObject();
+
+                          object.put("text", item.text);
+                          object.put("type", item.type);
+                          object.put("time", item.time);
+
+                          array.put(object);
+                      }
+
+                  } catch (Exception ignored) {
+                  }
+
+                  context
+                          .getSharedPreferences(
+                                  PREF,
+                                  Context.MODE_PRIVATE
+                          )
+                          .edit()
+                          .putString(
+                                  KEY,
+                                  array.toString()
+                          )
+                          .apply();
+              }
+
+              public static synchronized void add(
+                      Context context,
+                      String text,
+                      String type
+              ) {
+
+                  if (text == null) return;
+
+                  text = text.trim();
+
+                  if (text.isEmpty()) return;
+
+                  List<Item> items =
+                          load(context);
+
+                  for (
+                          int i = items.size() - 1;
+                          i >= 0;
+                          i--
+                  ) {
+
+                      if (
+                          items.get(i)
+                                  .text
+                                  .equals(text)
+                      ) {
+
+                          items.remove(i);
+                      }
+                  }
+
+                  items.add(
+                          0,
+                          new Item(
+                                  text,
+                                  type,
+                                  System.currentTimeMillis()
+                          )
+                  );
+
+                  while (
+                      items.size() > 500
+                  ) {
+
+                      items.remove(
+                              items.size() - 1
+                      );
+                  }
+
+                  save(context, items);
+              }
+
+              public static synchronized void clear(
+                      Context context
+              ) {
+
+                  context
+                          .getSharedPreferences(
+                                  PREF,
+                                  Context.MODE_PRIVATE
+                          )
+                          .edit()
+                          .remove(KEY)
+                          .apply();
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/jiexin/floatinginput/MainActivity.java <<'EOF'
+          package com.jiexin.floatinginput;
+
+          import android.Manifest;
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.content.pm.PackageManager;
+          import android.graphics.Color;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.provider.Settings;
+          import android.widget.FrameLayout;
+          import android.widget.Toast;
+
+          public class MainActivity extends Activity {
+
+              private boolean overlayPermissionRequested = false;
+              private boolean started = false;
+
+              @Override
+              protected void onCreate(
+                      Bundle savedInstanceState
+              ) {
+
+                  super.onCreate(savedInstanceState);
+
+                  FrameLayout root =
+                          new FrameLayout(this);
+
+                  root.setBackgroundColor(
+                          Color.TRANSPARENT
+                  );
+
+                  setContentView(root);
+
+                  getSharedPreferences(
+                          "floating_settings",
+                          MODE_PRIVATE
+                  )
+                  .edit()
+                  .putInt(
+                          "alpha_percent",
+                          90
+                  )
+                  .apply();
+
+                  checkNormalPermissions();
+              }
+
+              private void checkNormalPermissions() {
+
+                  boolean locationMissing =
+                          Build.VERSION.SDK_INT >= 23 &&
+                          checkSelfPermission(
+                                  Manifest.permission.ACCESS_FINE_LOCATION
+                          ) != PackageManager.PERMISSION_GRANTED;
+
+                  boolean activityMissing =
+                          Build.VERSION.SDK_INT >= 29 &&
+                          checkSelfPermission(
+                                  Manifest.permission.ACTIVITY_RECOGNITION
+                          ) != PackageManager.PERMISSION_GRANTED;
+
+                  if (
+                      locationMissing ||
+                      activityMissing
+                  ) {
+
+                      Intent intent =
+                              new Intent(
+                                      this,
+                                      PermissionActivity.class
+                              );
+
+                      startActivityForResult(
+                              intent,
+                              1001
+                      );
+
+                  } else {
+
+                      checkOverlayPermission();
+                  }
+              }
+
+              @Override
+              protected void onActivityResult(
+                      int requestCode,
+                      int resultCode,
+                      Intent data
+              ) {
+
+                  super.onActivityResult(
+                          requestCode,
+                          resultCode,
+                          data
+                  );
+
+                  if (requestCode == 1001) {
+
+                      checkOverlayPermission();
+                  }
+              }
+
+              private void checkOverlayPermission() {
+
+                  if (
+                      Build.VERSION.SDK_INT <
+                      Build.VERSION_CODES.M ||
+                      Settings.canDrawOverlays(this)
+                  ) {
+
+                      startOverlay();
+
+                  } else {
+
+                      overlayPermissionRequested = true;
+
+                      Toast.makeText(
+                              this,
+                              "请允许“显示在其他应用上层”",
+                              Toast.LENGTH_LONG
+                      ).show();
+
+                      Intent intent =
+                              new Intent(
+                                      Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                      Uri.parse(
+                                              "package:" +
+                                              getPackageName()
+                                      )
+                              );
+
+                      startActivity(intent);
+                  }
+              }
+
+              @Override
+              protected void onResume() {
+
+                  super.onResume();
+
+                  if (
+                      overlayPermissionRequested &&
+                      (
+                          Build.VERSION.SDK_INT <
+                          Build.VERSION_CODES.M ||
+                          Settings.canDrawOverlays(this)
+                      )
+                  ) {
+
+                      overlayPermissionRequested = false;
+
+                      startOverlay();
+                  }
+              }
+
+              private void startOverlay() {
+
+                  if (started) return;
+
+                  started = true;
+
+                  Intent service =
+                          new Intent(
+                                  this,
+                                  FloatingService.class
+                          );
+
+                  service.setAction(
+                          "OPEN_AND_KEYBOARD"
+                  );
+
+                  if (
+                      Build.VERSION.SDK_INT >=
+                      Build.VERSION_CODES.O
+                  ) {
+
+                      startForegroundService(service);
+
+                  } else {
+
+                      startService(service);
+                  }
+
+                  Intent catcher =
+                          new Intent(
+                                  this,
+                                  BackCatcherActivity.class
+                          );
+
+                  startActivity(catcher);
+
+                  finish();
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/jiexin/floatinginput/PermissionActivity.java <<'EOF'
+          package com.jiexin.floatinginput;
+
+          import android.Manifest;
+          import android.app.Activity;
+          import android.content.pm.PackageManager;
+          import android.graphics.Color;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.view.Gravity;
+          import android.widget.Button;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
+
+          import java.util.ArrayList;
+
+          public class PermissionActivity extends Activity {
+
+              private static final int REQUEST_CODE = 9001;
+
+              private int dp(int value) {
+
+                  return (int) (
+                          value *
+                          getResources()
+                                  .getDisplayMetrics()
+                                  .density
+                  );
+              }
+
+              @Override
+              protected void onCreate(
+                      Bundle savedInstanceState
+              ) {
+
+                  super.onCreate(savedInstanceState);
+
+                  LinearLayout root =
+                          new LinearLayout(this);
+
+                  root.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  root.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  root.setPadding(
+                          dp(25),
+                          dp(30),
+                          dp(25),
+                          dp(30)
+                  );
+
+                  root.setBackgroundColor(
+                          Color.WHITE
+                  );
+
+                  TextView title =
+                          new TextView(this);
+
+                  title.setText(
+                          "首次使用权限"
+                  );
+
+                  title.setTextSize(26);
+
+                  title.setTextColor(
+                          Color.BLACK
+                  );
+
+                  title.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  root.addView(title);
+
+                  TextView info =
+                          new TextView(this);
+
+                  info.setText(
+                          "\nV15.1需要以下权限：\n\n" +
+                          "① 位置权限\n" +
+                          "用于获取手机当前位置的实时气温。\n\n" +
+                          "② 身体活动权限\n" +
+                          "用于读取手机计步传感器。\n\n" +
+                          "请点击下面按钮允许权限。"
+                  );
+
+                  info.setTextSize(17);
+
+                  info.setTextColor(
+                          Color.DKGRAY
+                  );
+
+                  info.setGravity(
+                          Gravity.CENTER_HORIZONTAL
+                  );
+
+                  root.addView(
+                          info,
+                          new LinearLayout.LayoutParams(
+                                  LinearLayout.LayoutParams.MATCH_PARENT,
+                                  0,
+                                  1f
+                          )
+                  );
+
+                  Button button =
+                          new Button(this);
+
+                  button.setText(
+                          "允许权限并继续"
+                  );
+
+                  button.setAllCaps(false);
+
+                  button.setOnClickListener(
+                          v -> requestNeeded()
+                  );
+
+                  root.addView(
+                          button,
+                          new LinearLayout.LayoutParams(
+                                  LinearLayout.LayoutParams.MATCH_PARENT,
+                                  dp(60)
+                          )
+                  );
+
+                  setContentView(root);
+              }
+
+              private void requestNeeded() {
+
+                  if (
+                      Build.VERSION.SDK_INT <
+                      Build.VERSION_CODES.M
+                  ) {
+
+                      finishWithResult();
+
+                      return;
+                  }
+
+                  ArrayList<String> list =
+                          new ArrayList<>();
+
+                  if (
+                      checkSelfPermission(
+                              Manifest.permission.ACCESS_FINE_LOCATION
+                      ) != PackageManager.PERMISSION_GRANTED
+                  ) {
+
+                      list.add(
+                              Manifest.permission.ACCESS_FINE_LOCATION
+                      );
+                  }
+
+                  if (
+                      checkSelfPermission(
+                              Manifest.permission.ACCESS_COARSE_LOCATION
+                      ) != PackageManager.PERMISSION_GRANTED
+                  ) {
+
+                      list.add(
+                              Manifest.permission.ACCESS_COARSE_LOCATION
+                      );
+                  }
+
+                  if (
+                      Build.VERSION.SDK_INT >= 29 &&
+                      checkSelfPermission(
+                              Manifest.permission.ACTIVITY_RECOGNITION
+                      ) != PackageManager.PERMISSION_GRANTED
+                  ) {
+
+                      list.add(
+                              Manifest.permission.ACTIVITY_RECOGNITION
+                      );
+                  }
+
+                  if (list.isEmpty()) {
+
+                      finishWithResult();
+
+                  } else {
+
+                      requestPermissions(
+                              list.toArray(
+                                      new String[0]
+                              ),
+                              REQUEST_CODE
+                      );
+                  }
+              }
+
+              @Override
+              public void onRequestPermissionsResult(
+                      int requestCode,
+                      String[] permissions,
+                      int[] grantResults
+              ) {
+
+                  super.onRequestPermissionsResult(
+                          requestCode,
+                          permissions,
+                          grantResults
+                  );
+
+                  if (
+                      requestCode ==
+                      REQUEST_CODE
+                  ) {
+
+                      finishWithResult();
+                  }
+              }
+
+              private void finishWithResult() {
+
+                  setResult(RESULT_OK);
+
+                  finish();
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/jiexin/floatinginput/BackCatcherActivity.java <<'EOF'
+          package com.jiexin.floatinginput;
+
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.graphics.Color;
+          import android.os.Bundle;
+          import android.view.WindowManager;
+          import android.widget.FrameLayout;
+
+          public class BackCatcherActivity extends Activity {
+
+              private long lastBack = 0;
+
+              @Override
+              protected void onCreate(
+                      Bundle savedInstanceState
+              ) {
+
+                  super.onCreate(savedInstanceState);
+
+                  getWindow().setDimAmount(0f);
+
+                  getWindow().setSoftInputMode(
+                          WindowManager.LayoutParams
+                                  .SOFT_INPUT_ADJUST_NOTHING
+                  );
+
+                  FrameLayout root =
+                          new FrameLayout(this);
+
+                  root.setBackgroundColor(
+                          Color.TRANSPARENT
+                  );
+
+                  setContentView(root);
+              }
+
+              @Override
+              public void onBackPressed() {
+
+                  long now =
+                          System.currentTimeMillis();
+
+                  if (
+                      lastBack == 0 ||
+                      now - lastBack > 3000
+                  ) {
+
+                      lastBack = now;
+
+                      Intent intent =
+                              new Intent(
+                                      this,
+                                      FloatingService.class
+                              );
+
+                      intent.setAction(
+                              "FIRST_BACK"
+                      );
+
+                      startService(intent);
+
+                      return;
+                  }
+
+                  Intent intent =
+                          new Intent(
+                                  this,
+                                  FloatingService.class
+                          );
+
+                  intent.setAction(
+                          "SECOND_BACK"
+                  );
+
+                  startService(intent);
+
+                  finishAndRemoveTask();
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/jiexin/floatinginput/SettingsActivity.java <<'EOF'
+          package com.jiexin.floatinginput;
+
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.graphics.Color;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.provider.Settings;
+          import android.view.ViewGroup;
+          import android.widget.Button;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
+          import android.widget.Toast;
+
+          public class SettingsActivity extends Activity {
+
+              private int dp(int value) {
+
+                  return (int) (
+                          value *
+                          getResources()
+                                  .getDisplayMetrics()
+                                  .density
+                  );
+              }
+
+              @Override
+              protected void onCreate(
+                      Bundle savedInstanceState
+              ) {
+
+                  super.onCreate(savedInstanceState);
+
+                  LinearLayout root =
+                          new LinearLayout(this);
+
+                  root.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  root.setPadding(
+                          dp(22),
+                          dp(30),
+                          dp(22),
+                          dp(25)
+                  );
+
+                  root.setBackgroundColor(
+                          Color.rgb(
+                                  245,
+                                  247,
+                                  250
+                          )
+                  );
+
+                  TextView title =
+                          new TextView(this);
+
+                  title.setText(
+                          "悬浮输入框 V15.1"
+                  );
+
+                  title.setTextSize(26);
+
+                  title.setTextColor(
+                          Color.BLACK
+                  );
+
+                  root.addView(title);
+
+                  TextView info =
+                          new TextView(this);
+
+                  info.setText(
+                          "\n功能：\n\n" +
+                          "• 今日实时步数\n" +
+                          "• 手机当前位置实时气温\n" +
+                          "• 返回键先关闭输入法，再关闭悬浮APP\n" +
+                          "• 透明度5%～100%\n" +
+                          "• 黑/红/绿/蓝/黄字体切换\n" +
+                          "• 网址直接打开\n" +
+                          "• 普通文字百度搜索\n" +
+                          "• 历史记录\n" +
+                          "• 拖动移动悬浮窗\n" +
+                          "• 拖动↘调整大小\n" +
+                          "• 单击↘换行"
+                  );
+
+                  info.setTextSize(16);
+
+                  info.setTextColor(
+                          Color.DKGRAY
+                  );
+
+                  root.addView(
+                          info,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  0,
+                                  1f
+                          )
+                  );
+
+                  Button overlay =
+                          new Button(this);
+
+                  overlay.setText(
+                          "悬浮窗权限设置"
+                  );
+
+                  overlay.setAllCaps(false);
+
+                  overlay.setOnClickListener(
+                          v -> {
+
+                      Intent intent =
+                              new Intent(
+                                      Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                      Uri.parse(
+                                              "package:" +
+                                              getPackageName()
+                                      )
+                              );
+
+                      startActivity(intent);
+                  });
+
+                  root.addView(
+                          overlay,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  dp(58)
+                          )
+                  );
+
+                  Button clear =
+                          new Button(this);
+
+                  clear.setText(
+                          "清空全部历史记录"
+                  );
+
+                  clear.setAllCaps(false);
+
+                  clear.setOnClickListener(
+                          v -> {
+
+                      HistoryManager.clear(this);
+
+                      Toast.makeText(
+                              this,
+                              "历史记录已清空",
+                              Toast.LENGTH_SHORT
+                      ).show();
+                  });
+
+                  root.addView(
+                          clear,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  dp(58)
+                          )
+                  );
+
+                  Button back =
+                          new Button(this);
+
+                  back.setText("返回");
+
+                  back.setAllCaps(false);
+
+                  back.setOnClickListener(
+                          v -> finish()
+                  );
+
+                  root.addView(
+                          back,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  dp(58)
+                          )
+                  );
+
+                  setContentView(root);
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/jiexin/floatinginput/HistoryActivity.java <<'EOF'
+          package com.jiexin.floatinginput;
+
+          import android.app.Activity;
+          import android.app.AlertDialog;
+          import android.content.Intent;
+          import android.graphics.Color;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.view.Gravity;
+          import android.view.ViewGroup;
+          import android.widget.Button;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.TextView;
+          import android.widget.Toast;
+
+          import java.text.SimpleDateFormat;
+          import java.util.ArrayList;
+          import java.util.Date;
+          import java.util.HashSet;
+          import java.util.List;
+          import java.util.Locale;
+          import java.util.Set;
+
+          public class HistoryActivity extends Activity {
+
+              private LinearLayout container;
+
+              private List<HistoryManager.Item> items =
+                      new ArrayList<>();
+
+              private final Set<Integer> selected =
+                      new HashSet<>();
+
+              private boolean selectMode = false;
+
+              private int dp(int value) {
+
+                  return (int) (
+                          value *
+                          getResources()
+                                  .getDisplayMetrics()
+                                  .density
+                  );
+              }
+
+              @Override
+              protected void onCreate(
+                      Bundle savedInstanceState
+              ) {
+
+                  super.onCreate(savedInstanceState);
+
+                  createPage();
+              }
+
+              @Override
+              protected void onResume() {
+
+                  super.onResume();
+
+                  reload();
+              }
+
+              private void createPage() {
+
+                  LinearLayout root =
+                          new LinearLayout(this);
+
+                  root.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  root.setBackgroundColor(
+                          Color.rgb(
+                                  245,
+                                  247,
+                                  250
+                          )
+                  );
+
+                  LinearLayout top =
+                          new LinearLayout(this);
+
+                  top.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  Button back =
+                          new Button(this);
+
+                  back.setText("返回");
+                  back.setAllCaps(false);
+
+                  back.setOnClickListener(
+                          v -> closeApp()
+                  );
+
+                  TextView title =
+                          new TextView(this);
+
+                  title.setText(
+                          "历史记录"
+                  );
+
+                  title.setTextSize(22);
+
+                  title.setTextColor(
+                          Color.BLACK
+                  );
+
+                  title.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  top.addView(
+                          back,
+                          new LinearLayout.LayoutParams(
+                                  dp(80),
+                                  dp(55)
+                          )
+                  );
+
+                  top.addView(
+                          title,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(55),
+                                  1f
+                          )
+                  );
+
+                  root.addView(top);
+
+                  LinearLayout buttons =
+                          new LinearLayout(this);
+
+                  Button all =
+                          new Button(this);
+
+                  all.setText("全选");
+                  all.setAllCaps(false);
+
+                  Button delete =
+                          new Button(this);
+
+                  delete.setText(
+                          "删除所选"
+                  );
+
+                  delete.setAllCaps(false);
+
+                  Button deleteAll =
+                          new Button(this);
+
+                  deleteAll.setText(
+                          "全部删除"
+                  );
+
+                  deleteAll.setAllCaps(false);
+
+                  all.setOnClickListener(
+                          v -> {
+
+                      selectMode = true;
+
+                      selected.clear();
+
+                      for (
+                          int i = 0;
+                          i < items.size();
+                          i++
+                      ) {
+
+                          selected.add(i);
+                      }
+
+                      render();
+                  });
+
+                  delete.setOnClickListener(
+                          v -> deleteSelected()
+                  );
+
+                  deleteAll.setOnClickListener(
+                          v -> {
+
+                      if (items.isEmpty()) return;
+
+                      new AlertDialog.Builder(this)
+                              .setTitle("全部删除")
+                              .setMessage(
+                                      "确定删除全部历史记录吗？"
+                              )
+                              .setNegativeButton(
+                                      "取消",
+                                      null
+                              )
+                              .setPositiveButton(
+                                      "删除",
+                                      (d, w) -> {
+
+                                  HistoryManager.clear(this);
+
+                                  reload();
+                              })
+                              .show();
+                  });
+
+                  buttons.addView(
+                          all,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(52),
+                                  1f
+                          )
+                  );
+
+                  buttons.addView(
+                          delete,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(52),
+                                  1f
+                          )
+                  );
+
+                  buttons.addView(
+                          deleteAll,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(52),
+                                  1f
+                          )
+                  );
+
+                  root.addView(buttons);
+
+                  ScrollView scroll =
+                          new ScrollView(this);
+
+                  container =
+                          new LinearLayout(this);
+
+                  container.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  container.setPadding(
+                          dp(10),
+                          dp(8),
+                          dp(10),
+                          dp(30)
+                  );
+
+                  scroll.addView(container);
+
+                  root.addView(
+                          scroll,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  0,
+                                  1f
+                          )
+                  );
+
+                  setContentView(root);
+              }
+
+              private void reload() {
+
+                  items =
+                          HistoryManager.load(this);
+
+                  selected.clear();
+
+                  selectMode = false;
+
+                  render();
+              }
+
+              private void render() {
+
+                  container.removeAllViews();
+
+                  if (items.isEmpty()) {
+
+                      TextView empty =
+                              new TextView(this);
+
+                      empty.setText(
+                              "暂无历史记录"
+                      );
+
+                      empty.setTextSize(18);
+
+                      empty.setGravity(
+                              Gravity.CENTER
+                      );
+
+                      empty.setTextColor(
+                              Color.GRAY
+                      );
+
+                      container.addView(
+                              empty,
+                              new LinearLayout.LayoutParams(
+                                      ViewGroup.LayoutParams.MATCH_PARENT,
+                                      dp(160)
+                              )
+                      );
+
+                      return;
+                  }
+
+                  SimpleDateFormat format =
+                          new SimpleDateFormat(
+                                  "yyyy-MM-dd HH:mm:ss",
+                                  Locale.getDefault()
+                          );
+
+                  for (
+                      int i = 0;
+                      i < items.size();
+                      i++
+                  ) {
+
+                      final int index = i;
+
+                      HistoryManager.Item item =
+                              items.get(i);
+
+                      LinearLayout row =
+                              new LinearLayout(this);
+
+                      row.setOrientation(
+                              LinearLayout.VERTICAL
+                      );
+
+                      row.setPadding(
+                              dp(14),
+                              dp(12),
+                              dp(14),
+                              dp(12)
+                      );
+
+                      row.setBackgroundColor(
+                              selected.contains(index)
+                                      ? Color.rgb(
+                                              220,
+                                              232,
+                                              255
+                                      )
+                                      : Color.WHITE
+                      );
+
+                      TextView text =
+                              new TextView(this);
+
+                      text.setText(
+                              item.text
+                      );
+
+                      text.setTextSize(18);
+
+                      text.setTextColor(
+                              Color.BLACK
+                      );
+
+                      TextView sub =
+                              new TextView(this);
+
+                      sub.setText(
+                              item.type +
+                              "   " +
+                              format.format(
+                                      new Date(
+                                              item.time
+                                      )
+                              )
+                      );
+
+                      sub.setTextSize(13);
+
+                      sub.setTextColor(
+                              Color.GRAY
+                      );
+
+                      row.addView(text);
+                      row.addView(sub);
+
+                      row.setOnLongClickListener(
+                              v -> {
+
+                          selectMode = true;
+
+                          selected.add(index);
+
+                          render();
+
+                          return true;
+                      });
+
+                      row.setOnClickListener(
+                              v -> {
+
+                          if (selectMode) {
+
+                              if (
+                                  selected.contains(index)
+                              ) {
+
+                                  selected.remove(index);
+
+                              } else {
+
+                                  selected.add(index);
+                              }
+
+                              render();
+
+                              return;
+                          }
+
+                          getSharedPreferences(
+                                  "floating_settings",
+                                  MODE_PRIVATE
+                          )
+                          .edit()
+                          .putString(
+                                  "restore_text",
+                                  item.text
+                          )
+                          .apply();
+
+                          Intent intent =
+                                  new Intent(
+                                          this,
+                                          FloatingService.class
+                                  );
+
+                          intent.setAction(
+                                  "SHOW_FROM_HISTORY"
+                          );
+
+                          if (
+                              Build.VERSION.SDK_INT >=
+                              Build.VERSION_CODES.O
+                          ) {
+
+                              startForegroundService(intent);
+
+                          } else {
+
+                              startService(intent);
+                          }
+
+                          finish();
+                      });
+
+                      LinearLayout.LayoutParams lp =
+                              new LinearLayout.LayoutParams(
+                                      ViewGroup.LayoutParams.MATCH_PARENT,
+                                      ViewGroup.LayoutParams.WRAP_CONTENT
+                              );
+
+                      lp.bottomMargin =
+                              dp(8);
+
+                      container.addView(
+                              row,
+                              lp
+                      );
+                  }
+              }
+
+              private void deleteSelected() {
+
+                  if (selected.isEmpty()) {
+
+                      Toast.makeText(
+                              this,
+                              "请先长按选择记录",
+                              Toast.LENGTH_SHORT
+                      ).show();
+
+                      return;
+                  }
+
+                  new AlertDialog.Builder(this)
+                          .setTitle(
+                                  "删除所选记录"
+                          )
+                          .setMessage(
+                                  "确定删除选中的记录吗？"
+                          )
+                          .setNegativeButton(
+                                  "取消",
+                                  null
+                          )
+                          .setPositiveButton(
+                                  "删除",
+                                  (d, w) -> {
+
+                              List<HistoryManager.Item> newItems =
+                                      new ArrayList<>();
+
+                              for (
+                                  int i = 0;
+                                  i < items.size();
+                                  i++
+                              ) {
+
+                                  if (
+                                      !selected.contains(i)
+                                  ) {
+
+                                      newItems.add(
+                                              items.get(i)
+                                      );
+                                  }
+                              }
+
+                              HistoryManager.save(
+                                      this,
+                                      newItems
+                              );
+
+                              reload();
+                          })
+                          .show();
+              }
+
+              @Override
+              public void onBackPressed() {
+
+                  closeApp();
+              }
+
+              private void closeApp() {
+
+                  Intent intent =
+                          new Intent(
+                                  this,
+                                  FloatingService.class
+                          );
+
+                  intent.setAction(
+                          "CLOSE_FROM_HISTORY"
+                  );
+
+                  startService(intent);
+
+                  finishAndRemoveTask();
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/jiexin/floatinginput/FloatingService.java <<'EOF'
+          package com.jiexin.floatinginput;
+
+          import android.Manifest;
+          import android.app.ActivityManager;
+          import android.app.Notification;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.PendingIntent;
+          import android.app.Service;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.content.pm.PackageManager;
+          import android.graphics.Color;
+          import android.graphics.PixelFormat;
+          import android.graphics.drawable.GradientDrawable;
+          import android.hardware.Sensor;
+          import android.hardware.SensorEvent;
+          import android.hardware.SensorEventListener;
+          import android.hardware.SensorManager;
+          import android.location.Location;
+          import android.location.LocationListener;
+          import android.location.LocationManager;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Handler;
+          import android.os.IBinder;
+          import android.os.Looper;
+          import android.text.Editable;
+          import android.view.Gravity;
+          import android.view.KeyEvent;
+          import android.view.MotionEvent;
+          import android.view.View;
+          import android.view.ViewGroup;
+          import android.view.WindowManager;
+          import android.view.inputmethod.EditorInfo;
+          import android.view.inputmethod.InputMethodManager;
+          import android.widget.EditText;
+          import android.widget.FrameLayout;
+          import android.widget.LinearLayout;
+          import android.widget.SeekBar;
+          import android.widget.TextView;
+          import android.widget.Toast;
+
+          import org.json.JSONObject;
+
+          import java.io.BufferedReader;
+          import java.io.InputStreamReader;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import java.net.URLEncoder;
+          import java.text.SimpleDateFormat;
+          import java.util.Date;
+          import java.util.Locale;
+
+          public class FloatingService
+                  extends Service
+                  implements SensorEventListener {
+
+              private static final String CHANNEL_ID =
+                      "floating_input_channel_v151";
+
+              private static final int NOTIFICATION_ID =
+                      1510;
+
+              private WindowManager windowManager;
+              private WindowManager.LayoutParams params;
+
+              private LinearLayout rootView;
+
+              private EditText inputBox;
+
+              private TextView moveButton;
+              private TextView resizeButton;
+              private TextView colorButton;
+
+              private SeekBar alphaSeekBar;
+              private TextView alphaValue;
+
+              private TextView stepText;
+              private TextView weatherText;
+
+              private SharedPreferences prefs;
+
+              private int alphaPercent = 90;
+
+              private int fontColorIndex = 0;
+
+              private final int[] fontColors = {
+                      Color.BLACK,
+                      Color.RED,
+                      Color.rgb(0, 150, 0),
+                      Color.BLUE,
+                      Color.rgb(230, 175, 0)
+              };
+
+              private final String[] fontNames = {
+                      "黑",
+                      "红",
+                      "绿",
+                      "蓝",
+                      "黄"
+              };
+
+              private boolean hidden = false;
+
+              private float moveStartRawX;
+              private float moveStartRawY;
+
+              private int moveStartX;
+              private int moveStartY;
+
+              private float resizeStartRawX;
+              private float resizeStartRawY;
+
+              private int resizeStartWidth;
+              private int resizeStartHeight;
+
+              private boolean resized = false;
+
+              private SensorManager sensorManager;
+              private Sensor stepSensor;
+
+              private LocationManager locationManager;
+              private LocationListener locationListener;
+
+              private Handler handler =
+                      new Handler(
+                              Looper.getMainLooper()
+                      );
+
+              private double latitude;
+              private double longitude;
+
+              private boolean hasLocation = false;
+
+              private long lastWeatherRequest = 0;
+
+              private int dp(int value) {
+
+                  return (int) (
+                          value *
+                          getResources()
+                                  .getDisplayMetrics()
+                                  .density
+                  );
+              }
+
+              @Override
+              public void onCreate() {
+
+                  super.onCreate();
+
+                  prefs =
+                          getSharedPreferences(
+                                  "floating_settings",
+                                  MODE_PRIVATE
+                          );
+
+                  createChannel();
+
+                  startForeground(
+                          NOTIFICATION_ID,
+                          createNotification()
+                  );
+
+                  windowManager =
+                          (WindowManager)
+                          getSystemService(
+                                  WINDOW_SERVICE
+                          );
+
+                  createOverlay();
+
+                  startStepCounter();
+
+                  startWeather();
+              }
+
+              @Override
+              public int onStartCommand(
+                      Intent intent,
+                      int flags,
+                      int startId
+              ) {
+
+                  if (intent == null) {
+
+                      return START_NOT_STICKY;
+                  }
+
+                  String action =
+                          intent.getAction();
+
+                  if (
+                      "OPEN_AND_KEYBOARD".equals(action)
+                  ) {
+
+                      alphaPercent = 90;
+
+                      if (
+                          alphaSeekBar != null
+                      ) {
+
+                          alphaSeekBar.setProgress(
+                                  85
+                          );
+                      }
+
+                      showOverlay();
+
+                      updateAlpha();
+
+                      showKeyboard();
+
+                  } else if (
+                      "FIRST_BACK".equals(action)
+                  ) {
+
+                      /*
+                       * 第一次返回：
+                       * 关闭输入法。
+                       */
+                      hideKeyboard();
+
+                  } else if (
+                      "SECOND_BACK".equals(action)
+                  ) {
+
+                      /*
+                       * 第二次返回：
+                       * 关闭整个悬浮APP。
+                       */
+                      closeEverything();
+
+                  } else if (
+                      "CLOSE_FROM_HISTORY".equals(action)
+                  ) {
+
+                      closeEverything();
+
+                  } else if (
+                      "SHOW_FROM_HISTORY".equals(action)
+                  ) {
+
+                      showOverlay();
+
+                      String text =
+                              prefs.getString(
+                                      "restore_text",
+                                      ""
+                              );
+
+                      if (
+                          inputBox != null
+                      ) {
+
+                          inputBox.setText(text);
+
+                          inputBox.setSelection(
+                                  inputBox
+                                          .getText()
+                                          .length()
+                          );
+                      }
+
+                      prefs.edit()
+                              .remove(
+                                      "restore_text"
+                              )
+                              .apply();
+
+                      Intent catcher =
+                              new Intent(
+                                      this,
+                                      BackCatcherActivity.class
+                              );
+
+                      catcher.addFlags(
+                              Intent.FLAG_ACTIVITY_NEW_TASK |
+                              Intent.FLAG_ACTIVITY_CLEAR_TOP
+                      );
+
+                      startActivity(catcher);
+
+                      showKeyboard();
+                  }
+
+                  return START_NOT_STICKY;
+              }
+
+              private void createChannel() {
+
+                  if (
+                      Build.VERSION.SDK_INT >=
+                      Build.VERSION_CODES.O
+                  ) {
+
+                      NotificationChannel channel =
+                              new NotificationChannel(
+                                      CHANNEL_ID,
+                                      "悬浮输入框",
+                                      NotificationManager.IMPORTANCE_LOW
+                              );
+
+                      channel.setShowBadge(false);
+
+                      NotificationManager manager =
+                              getSystemService(
+                                      NotificationManager.class
+                              );
+
+                      manager.createNotificationChannel(
+                              channel
+                      );
+                  }
+              }
+
+              private Notification createNotification() {
+
+                  Intent intent =
+                          new Intent(
+                                  this,
+                                  MainActivity.class
+                          );
+
+                  PendingIntent pi =
+                          PendingIntent.getActivity(
+                                  this,
+                                  0,
+                                  intent,
+                                  PendingIntent.FLAG_UPDATE_CURRENT |
+                                  PendingIntent.FLAG_IMMUTABLE
+                          );
+
+                  Notification.Builder builder;
+
+                  if (
+                      Build.VERSION.SDK_INT >=
+                      Build.VERSION_CODES.O
+                  ) {
+
+                      builder =
+                              new Notification.Builder(
+                                      this,
+                                      CHANNEL_ID
+                              );
+
+                  } else {
+
+                      builder =
+                              new Notification.Builder(this);
+                  }
+
+                  return builder
+                          .setContentTitle(
+                                  "悬浮输入框 V15.1"
+                          )
+                          .setContentText(
+                                  "实时步数 · 当前气温"
+                          )
+                          .setSmallIcon(
+                                  android.R.drawable.ic_menu_view
+                          )
+                          .setContentIntent(pi)
+                          .setOngoing(true)
+                          .build();
+              }
+
+              private GradientDrawable bg(
+                      int color,
+                      int radius,
+                      Integer stroke
+              ) {
+
+                  GradientDrawable drawable =
+                          new GradientDrawable();
+
+                  drawable.setColor(color);
+
+                  drawable.setCornerRadius(
+                          dp(radius)
+                  );
+
+                  if (stroke != null) {
+
+                      drawable.setStroke(
+                              dp(1),
+                              stroke
+                      );
+                  }
+
+                  return drawable;
+              }
+
+              private TextView topButton(
+                      String text
+              ) {
+
+                  TextView view =
+                          new TextView(this);
+
+                  view.setText(text);
+
+                  view.setTextSize(12);
+
+                  view.setSingleLine(true);
+
+                  view.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  view.setTextColor(
+                          Color.rgb(
+                                  35,
+                                  35,
+                                  35
+                          )
+                  );
+
+                  view.setBackground(
+                          bg(
+                                  Color.rgb(
+                                          238,
+                                          241,
+                                          246
+                                  ),
+                                  7,
+                                  Color.rgb(
+                                          200,
+                                          205,
+                                          215
+                                  )
+                          )
+                  );
+
+                  return view;
+              }
+
+              private void addTop(
+                      LinearLayout bar,
+                      TextView button
+              ) {
+
+                  LinearLayout.LayoutParams lp =
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(42),
+                                  1f
+                          );
+
+                  lp.setMargins(
+                          dp(2),
+                          dp(2),
+                          dp(2),
+                          dp(3)
+                  );
+
+                  bar.addView(
+                          button,
+                          lp
+                  );
+              }
+
+              private void createOverlay() {
+
+                  rootView =
+                          new LinearLayout(this);
+
+                  rootView.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  rootView.setPadding(
+                          dp(7),
+                          dp(7),
+                          dp(7),
+                          dp(7)
+                  );
+
+                  rootView.setBackground(
+                          bg(
+                                  Color.WHITE,
+                                  12,
+                                  Color.rgb(
+                                          80,
+                                          80,
+                                          80
+                                  )
+                          )
+                  );
+
+                  /*
+                   * 顶部按钮
+                   */
+                  LinearLayout top =
+                          new LinearLayout(this);
+
+                  TextView close =
+                          topButton("关闭");
+
+                  TextView settings =
+                          topButton("设置");
+
+                  TextView history =
+                          topButton("历史");
+
+                  colorButton =
+                          topButton("字体:黑");
+
+                  moveButton =
+                          topButton("⇕移动");
+
+                  addTop(top, close);
+                  addTop(top, settings);
+                  addTop(top, history);
+                  addTop(top, colorButton);
+                  addTop(top, moveButton);
+
+                  rootView.addView(
+                          top,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  dp(48)
+                          )
+                  );
+
+                  /*
+                   * 输入框区域
+                   */
+                  FrameLayout inputArea =
+                          new FrameLayout(this);
+
+                  inputBox =
+                          new EditText(this);
+
+                  inputBox.setHint(
+                          "输入网址或搜索内容"
+                  );
+
+                  inputBox.setTextSize(18);
+
+                  inputBox.setGravity(
+                          Gravity.TOP |
+                          Gravity.START
+                  );
+
+                  inputBox.setSingleLine(false);
+
+                  inputBox.setMinLines(2);
+
+                  inputBox.setMaxLines(20);
+
+                  inputBox.setHorizontallyScrolling(
+                          false
+                  );
+
+                  inputBox.setImeOptions(
+                          EditorInfo.IME_ACTION_GO
+                  );
+
+                  inputBox.setRawInputType(
+                          android.text.InputType.TYPE_CLASS_TEXT |
+                          android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                  );
+
+                  inputBox.setPadding(
+                          dp(12),
+                          dp(10),
+                          dp(52),
+                          dp(50)
+                  );
+
+                  inputBox.setBackground(
+                          bg(
+                                  Color.WHITE,
+                                  8,
+                                  Color.LTGRAY
+                          )
+                  );
+
+                  fontColorIndex =
+                          prefs.getInt(
+                                  "font_color_index",
+                                  0
+                          );
+
+                  if (
+                      fontColorIndex < 0 ||
+                      fontColorIndex >
+                      4
+                  ) {
+
+                      fontColorIndex = 0;
+                  }
+
+                  inputBox.setTextColor(
+                          fontColors[
+                                  fontColorIndex
+                          ]
+                  );
+
+                  inputBox.setHintTextColor(
+                          Color.GRAY
+                  );
+
+                  inputBox.setOnEditorActionListener(
+                          (v, actionId, event) -> {
+
+                      boolean ime =
+                              actionId ==
+                              EditorInfo.IME_ACTION_GO ||
+                              actionId ==
+                              EditorInfo.IME_ACTION_SEARCH ||
+                              actionId ==
+                              EditorInfo.IME_ACTION_DONE;
+
+                      boolean enter =
+                              event != null &&
+                              event.getKeyCode() ==
+                              KeyEvent.KEYCODE_ENTER &&
+                              event.getAction() ==
+                              KeyEvent.ACTION_DOWN;
+
+                      if (ime || enter) {
+
+                          openText();
+
+                          return true;
+                      }
+
+                      return false;
+                  });
+
+                  inputArea.addView(
+                          inputBox,
+                          new FrameLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  ViewGroup.LayoutParams.MATCH_PARENT
+                          )
+                  );
+
+                  resizeButton =
+                          new TextView(this);
+
+                  resizeButton.setText("↘");
+
+                  resizeButton.setTextSize(28);
+
+                  resizeButton.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  resizeButton.setTextColor(
+                          Color.rgb(
+                                  40,
+                                  90,
+                                  190
+                          )
+                  );
+
+                  resizeButton.setBackground(
+                          bg(
+                                  Color.argb(
+                                          70,
+                                          80,
+                                          120,
+                                          220
+                                  ),
+                                  8,
+                                  null
+                          )
+                  );
+
+                  FrameLayout.LayoutParams resizeLp =
+                          new FrameLayout.LayoutParams(
+                                  dp(46),
+                                  dp(46),
+                                  Gravity.BOTTOM |
+                                  Gravity.END
+                          );
+
+                  inputArea.addView(
+                          resizeButton,
+                          resizeLp
+                  );
+
+                  rootView.addView(
+                          inputArea,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  0,
+                                  1f
+                          )
+                  );
+
+                  /*
+                   * 透明度滑块
+                   */
+                  LinearLayout alphaBar =
+                          new LinearLayout(this);
+
+                  alphaBar.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  TextView alphaTitle =
+                          new TextView(this);
+
+                  alphaTitle.setText(
+                          "透明度"
+                  );
+
+                  alphaTitle.setTextSize(13);
+
+                  alphaTitle.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  alphaSeekBar =
+                          new SeekBar(this);
+
+                  alphaSeekBar.setMax(95);
+
+                  alphaPercent =
+                          prefs.getInt(
+                                  "alpha_percent",
+                                  90
+                          );
+
+                  if (alphaPercent < 5) {
+                      alphaPercent = 5;
+                  }
+
+                  if (alphaPercent > 100) {
+                      alphaPercent = 100;
+                  }
+
+                  alphaSeekBar.setProgress(
+                          alphaPercent - 5
+                  );
+
+                  alphaValue =
+                          new TextView(this);
+
+                  alphaValue.setText(
+                          alphaPercent +
+                          "%"
+                  );
+
+                  alphaValue.setTextSize(13);
+
+                  alphaValue.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  alphaSeekBar.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                              @Override
+                              public void onProgressChanged(
+                                      SeekBar seekBar,
+                                      int progress,
+                                      boolean fromUser
+                              ) {
+
+                                  alphaPercent =
+                                          progress + 5;
+
+                                  updateAlpha();
+                              }
+
+                              @Override
+                              public void onStartTrackingTouch(
+                                      SeekBar seekBar
+                              ) {
+                              }
+
+                              @Override
+                              public void onStopTrackingTouch(
+                                      SeekBar seekBar
+                              ) {
+
+                                  saveSettings();
+                              }
+                          }
+                  );
+
+                  alphaBar.addView(
+                          alphaTitle,
+                          new LinearLayout.LayoutParams(
+                                  dp(55),
+                                  dp(45)
+                          )
+                  );
+
+                  alphaBar.addView(
+                          alphaSeekBar,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(45),
+                                  1f
+                          )
+                  );
+
+                  alphaBar.addView(
+                          alphaValue,
+                          new LinearLayout.LayoutParams(
+                                  dp(50),
+                                  dp(45)
+                          )
+                  );
+
+                  rootView.addView(
+                          alphaBar,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  dp(47)
+                          )
+                  );
+
+                  /*
+                   * 实时步数 + 实时气温
+                   */
+                  LinearLayout info =
+                          new LinearLayout(this);
+
+                  info.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  info.setBackground(
+                          bg(
+                                  Color.rgb(
+                                          245,
+                                          247,
+                                          250
+                                  ),
+                                  7,
+                                  Color.rgb(
+                                          215,
+                                          220,
+                                          228
+                                  )
+                          )
+                  );
+
+                  stepText =
+                          new TextView(this);
+
+                  stepText.setText(
+                          "今日步数：读取中…"
+                  );
+
+                  stepText.setTextSize(13);
+
+                  stepText.setTextColor(
+                          Color.DKGRAY
+                  );
+
+                  stepText.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  weatherText =
+                          new TextView(this);
+
+                  weatherText.setText(
+                          "气温：获取中…"
+                  );
+
+                  weatherText.setTextSize(13);
+
+                  weatherText.setTextColor(
+                          Color.DKGRAY
+                  );
+
+                  weatherText.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  info.addView(
+                          stepText,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(42),
+                                  1f
+                          )
+                  );
+
+                  info.addView(
+                          weatherText,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(42),
+                                  1f
+                          )
+                  );
+
+                  rootView.addView(
+                          info,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  dp(44)
+                          )
+                  );
+
+                  int type =
+                          Build.VERSION.SDK_INT >=
+                          Build.VERSION_CODES.O
+                                  ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                                  : WindowManager.LayoutParams.TYPE_PHONE;
+
+                  params =
+                          new WindowManager.LayoutParams(
+                                  prefs.getInt(
+                                          "width",
+                                          dp(360)
+                                  ),
+                                  prefs.getInt(
+                                          "height",
+                                          dp(350)
+                                  ),
+                                  type,
+                                  WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
+                                  WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                                  PixelFormat.TRANSLUCENT
+                          );
+
+                  params.gravity =
+                          Gravity.TOP |
+                          Gravity.START;
+
+                  params.x =
+                          prefs.getInt(
+                                  "x",
+                                  dp(25)
+                          );
+
+                  params.y =
+                          prefs.getInt(
+                                  "y",
+                                  dp(100)
+                          );
+
+                  params.softInputMode =
+                          WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE |
+                          WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
+
+                  try {
+
+                      windowManager.addView(
+                              rootView,
+                              params
+                      );
+
+                  } catch (Exception e) {
+
+                      stopSelf();
+
+                      return;
+                  }
+
+                  updateAlpha();
+
+                  updateColorButton();
+
+                  setupButtons(
+                          close,
+                          settings,
+                          history
+                  );
+
+                  setupMove();
+
+                  setupResize();
+              }
+
+              private void setupButtons(
+                      TextView close,
+                      TextView settings,
+                      TextView history
+              ) {
+
+                  close.setOnClickListener(
+                          v -> closeEverything()
+                  );
+
+                  settings.setOnClickListener(
+                          v -> {
+
+                      saveInputHistory();
+
+                      Intent intent =
+                              new Intent(
+                                      this,
+                                      SettingsActivity.class
+                              );
+
+                      intent.addFlags(
+                              Intent.FLAG_ACTIVITY_NEW_TASK
+                      );
+
+                      startActivity(intent);
+                  });
+
+                  history.setOnClickListener(
+                          v -> {
+
+                      saveInputHistory();
+
+                      saveSettings();
+
+                      hideKeyboard();
+
+                      if (
+                          rootView != null
+                      ) {
+
+                          rootView.setVisibility(
+                                  View.GONE
+                          );
+
+                          hidden = true;
+                      }
+
+                      Intent intent =
+                              new Intent(
+                                      this,
+                                      HistoryActivity.class
+                              );
+
+                      intent.addFlags(
+                              Intent.FLAG_ACTIVITY_NEW_TASK
+                      );
+
+                      startActivity(intent);
+                  });
+
+                  colorButton.setOnClickListener(
+                          v -> {
+
+                      fontColorIndex++;
+
+                      if (
+                          fontColorIndex >
+                          4
+                      ) {
+
+                          fontColorIndex = 0;
+                      }
+
+                      inputBox.setTextColor(
+                              fontColors[
+                                      fontColorIndex
+                              ]
+                      );
+
+                      updateColorButton();
+
+                      prefs.edit()
+                              .putInt(
+                                      "font_color_index",
+                                      fontColorIndex
+                              )
+                              .apply();
+                  });
+              }
+
+              private void updateColorButton() {
+
+                  colorButton.setText(
+                          "字体:" +
+                          fontNames[
+                                  fontColorIndex
+                          ]
+                  );
+
+                  colorButton.setTextColor(
+                          fontColors[
+                                  fontColorIndex
+                          ]
+                  );
+              }
+
+              private void updateAlpha() {
+
+                  if (rootView == null) return;
+
+                  rootView.setAlpha(
+                          alphaPercent /
+                          100f
+                  );
+
+                  if (
+                      alphaValue != null
+                  ) {
+
+                      alphaValue.setText(
+                              alphaPercent +
+                              "%"
+                      );
+                  }
+              }
+
+              /*
+               * ==============================
+               * 计步
+               * ==============================
+               */
+              private void startStepCounter() {
+
+                  if (
+                      Build.VERSION.SDK_INT >= 29 &&
+                      checkSelfPermission(
+                              Manifest.permission.ACTIVITY_RECOGNITION
+                      ) != PackageManager.PERMISSION_GRANTED
+                  ) {
+
+                      stepText.setText(
+                              "今日步数：无权限"
+                      );
+
+                      return;
+                  }
+
+                  sensorManager =
+                          (SensorManager)
+                          getSystemService(
+                                  SENSOR_SERVICE
+                          );
+
+                  if (sensorManager == null) {
+
+                      stepText.setText(
+                              "今日步数：不支持"
+                      );
+
+                      return;
+                  }
+
+                  stepSensor =
+                          sensorManager.getDefaultSensor(
+                                  Sensor.TYPE_STEP_COUNTER
+                          );
+
+                  if (stepSensor == null) {
+
+                      stepText.setText(
+                              "今日步数：不支持"
+                      );
+
+                      return;
+                  }
+
+                  sensorManager.registerListener(
+                          this,
+                          stepSensor,
+                          SensorManager.SENSOR_DELAY_NORMAL
+                  );
+              }
+
+              @Override
+              public void onSensorChanged(
+                      SensorEvent event
+              ) {
+
+                  if (
+                      event.sensor.getType() !=
+                      Sensor.TYPE_STEP_COUNTER
+                  ) {
+
+                      return;
+                  }
+
+                  float total =
+                          event.values[0];
+
+                  String day =
+                          new SimpleDateFormat(
+                                  "yyyyMMdd",
+                                  Locale.getDefault()
+                          )
+                          .format(
+                                  new Date()
+                          );
+
+                  String oldDay =
+                          prefs.getString(
+                                  "step_day",
+                                  ""
+                          );
+
+                  float base =
+                          prefs.getFloat(
+                                  "step_base",
+                                  -1f
+                          );
+
+                  if (
+                      !day.equals(oldDay) ||
+                      base < 0 ||
+                      total < base
+                  ) {
+
+                      base = total;
+
+                      prefs.edit()
+                              .putString(
+                                      "step_day",
+                                      day
+                              )
+                              .putFloat(
+                                      "step_base",
+                                      base
+                              )
+                              .apply();
+                  }
+
+                  int steps =
+                          Math.max(
+                                  0,
+                                  Math.round(
+                                          total -
+                                          base
+                                  )
+                          );
+
+                  final int finalSteps =
+                          steps;
+
+                  handler.post(
+                          () -> {
+
+                      if (
+                          stepText != null
+                      ) {
+
+                          stepText.setText(
+                                  "今日步数：" +
+                                  finalSteps +
+                                  " 步"
+                          );
+                      }
+                  });
+              }
+
+              @Override
+              public void onAccuracyChanged(
+                      Sensor sensor,
+                      int accuracy
+              ) {
+              }
+
+              /*
+               * ==============================
+               * 定位天气
+               * ==============================
+               */
+              private void startWeather() {
+
+                  if (
+                      Build.VERSION.SDK_INT >= 23 &&
+                      checkSelfPermission(
+                              Manifest.permission.ACCESS_FINE_LOCATION
+                      ) != PackageManager.PERMISSION_GRANTED &&
+                      checkSelfPermission(
+                              Manifest.permission.ACCESS_COARSE_LOCATION
+                      ) != PackageManager.PERMISSION_GRANTED
+                  ) {
+
+                      weatherText.setText(
+                              "气温：无定位权限"
+                      );
+
+                      return;
+                  }
+
+                  locationManager =
+                          (LocationManager)
+                          getSystemService(
+                                  LOCATION_SERVICE
+                          );
+
+                  if (
+                      locationManager == null
+                  ) {
+
+                      weatherText.setText(
+                              "气温：定位不可用"
+                      );
+
+                      return;
+                  }
+
+                  locationListener =
+                          new LocationListener() {
+
+                              @Override
+                              public void onLocationChanged(
+                                      Location location
+                              ) {
+
+                                  useLocation(
+                                          location
+                                  );
+                              }
+
+                              @Override
+                              public void onStatusChanged(
+                                      String provider,
+                                      int status,
+                                      Bundle extras
+                              ) {
+                              }
+
+                              @Override
+                              public void onProviderEnabled(
+                                      String provider
+                              ) {
+                              }
+
+                              @Override
+                              public void onProviderDisabled(
+                                      String provider
+                              ) {
+                              }
+                          };
+
+                  try {
+
+                      Location best = null;
+
+                      Location gps =
+                              locationManager
+                                      .getLastKnownLocation(
+                                              LocationManager.GPS_PROVIDER
+                                      );
+
+                      Location network =
+                              locationManager
+                                      .getLastKnownLocation(
+                                              LocationManager.NETWORK_PROVIDER
+                                      );
+
+                      if (
+                          gps != null &&
+                          network != null
+                      ) {
+
+                          best =
+                                  gps.getTime() >
+                                  network.getTime()
+                                          ? gps
+                                          : network;
+
+                      } else if (
+                          gps != null
+                      ) {
+
+                          best = gps;
+
+                      } else if (
+                          network != null
+                      ) {
+
+                          best = network;
+                      }
+
+                      if (best != null) {
+
+                          useLocation(best);
+                      }
+
+                      if (
+                          locationManager.isProviderEnabled(
+                                  LocationManager.NETWORK_PROVIDER
+                          )
+                      ) {
+
+                          locationManager.requestLocationUpdates(
+                                  LocationManager.NETWORK_PROVIDER,
+                                  300000,
+                                  100,
+                                  locationListener
+                          );
+                      }
+
+                      if (
+                          locationManager.isProviderEnabled(
+                                  LocationManager.GPS_PROVIDER
+                          )
+                      ) {
+
+                          locationManager.requestLocationUpdates(
+                                  LocationManager.GPS_PROVIDER,
+                                  300000,
+                                  100,
+                                  locationListener
+                          );
+                      }
+
+                  } catch (
+                          Exception e
+                  ) {
+
+                      weatherText.setText(
+                              "气温：定位失败"
+                      );
+                  }
+              }
+
+              private void useLocation(
+                      Location location
+              ) {
+
+                  if (location == null) return;
+
+                  latitude =
+                          location.getLatitude();
+
+                  longitude =
+                          location.getLongitude();
+
+                  hasLocation = true;
+
+                  long now =
+                          System.currentTimeMillis();
+
+                  if (
+                      now -
+                      lastWeatherRequest >
+                      300000
+                  ) {
+
+                      lastWeatherRequest = now;
+
+                      requestWeather(
+                              latitude,
+                              longitude
+                      );
+                  }
+              }
+
+              private void requestWeather(
+                      double lat,
+                      double lon
+              ) {
+
+                  handler.post(
+                          () -> {
+
+                      if (
+                          weatherText != null
+                      ) {
+
+                          weatherText.setText(
+                                  "气温：更新中…"
+                          );
+                      }
+                  });
+
+                  new Thread(
+                          () -> {
+
+                      HttpURLConnection connection =
+                              null;
+
+                      try {
+
+                          String address =
+                                  "https://api.open-meteo.com/v1/forecast" +
+                                  "?latitude=" +
+                                  lat +
+                                  "&longitude=" +
+                                  lon +
+                                  "&current=temperature_2m" +
+                                  "&temperature_unit=celsius";
+
+                          URL url =
+                                  new URL(address);
+
+                          connection =
+                                  (HttpURLConnection)
+                                  url.openConnection();
+
+                          connection.setRequestMethod(
+                                  "GET"
+                          );
+
+                          connection.setConnectTimeout(
+                                  10000
+                          );
+
+                          connection.setReadTimeout(
+                                  10000
+                          );
+
+                          connection.setRequestProperty(
+                                  "Accept",
+                                  "application/json"
+                          );
+
+                          int code =
+                                  connection.getResponseCode();
+
+                          if (
+                              code < 200 ||
+                              code >= 300
+                          ) {
+
+                              throw new Exception(
+                                      "HTTP " +
+                                      code
+                              );
+                          }
+
+                          BufferedReader reader =
+                                  new BufferedReader(
+                                          new InputStreamReader(
+                                                  connection
+                                                          .getInputStream(),
+                                                  "UTF-8"
+                                          )
+                                  );
+
+                          StringBuilder result =
+                                  new StringBuilder();
+
+                          String line;
+
+                          while (
+                              (line = reader.readLine())
+                              != null
+                          ) {
+
+                              result.append(line);
+                          }
+
+                          reader.close();
+
+                          JSONObject root =
+                                  new JSONObject(
+                                          result.toString()
+                                  );
+
+                          JSONObject current =
+                                  root.getJSONObject(
+                                          "current"
+                                  );
+
+                          double temp =
+                                  current.getDouble(
+                                          "temperature_2m"
+                                  );
+
+                          String value =
+                                  String.format(
+                                          Locale.getDefault(),
+                                          "%.1f°C",
+                                          temp
+                                  );
+
+                          handler.post(
+                                  () -> {
+
+                              if (
+                                  weatherText != null
+                              ) {
+
+                                  weatherText.setText(
+                                          "气温：" +
+                                          value
+                                  );
+                              }
+                          });
+
+                      } catch (
+                          Exception e
+                      ) {
+
+                          handler.post(
+                                  () -> {
+
+                              if (
+                                  weatherText != null
+                              ) {
+
+                                  weatherText.setText(
+                                          "气温：获取失败"
+                                  );
+                              }
+                          });
+
+                      } finally {
+
+                          if (
+                              connection != null
+                          ) {
+
+                              connection.disconnect();
+                          }
+                      }
+                  }).start();
+              }
+
+              /*
+               * ==============================
+               * 移动悬浮窗
+               * ==============================
+               */
+              private void setupMove() {
+
+                  moveButton.setOnTouchListener(
+                          (v, event) -> {
+
+                      switch (
+                              event.getActionMasked()
+                      ) {
+
+                          case MotionEvent.ACTION_DOWN:
+
+                              moveStartRawX =
+                                      event.getRawX();
+
+                              moveStartRawY =
+                                      event.getRawY();
+
+                              moveStartX =
+                                      params.x;
+
+                              moveStartY =
+                                      params.y;
+
+                              return true;
+
+                          case MotionEvent.ACTION_MOVE:
+
+                              params.x =
+                                      moveStartX +
+                                      (int) (
+                                          event.getRawX() -
+                                          moveStartRawX
+                                      );
+
+                              params.y =
+                                      moveStartY +
+                                      (int) (
+                                          event.getRawY() -
+                                          moveStartRawY
+                                      );
+
+                              try {
+
+                                  windowManager
+                                          .updateViewLayout(
+                                                  rootView,
+                                                  params
+                                          );
+
+                              } catch (
+                                  Exception ignored
+                              ) {
+                              }
+
+                              return true;
+
+                          case MotionEvent.ACTION_UP:
+
+                          case MotionEvent.ACTION_CANCEL:
+
+                              saveSettings();
+
+                              return true;
+                      }
+
+                      return true;
+                  });
+              }
+
+              /*
+               * ==============================
+               * ↘ 拖动缩放 / 点击换行
+               * ==============================
+               */
+              private void setupResize() {
+
+                  resizeButton.setOnTouchListener(
+                          (v, event) -> {
+
+                      switch (
+                              event.getActionMasked()
+                      ) {
+
+                          case MotionEvent.ACTION_DOWN:
+
+                              resizeStartRawX =
+                                      event.getRawX();
+
+                              resizeStartRawY =
+                                      event.getRawY();
+
+                              resizeStartWidth =
+                                      params.width;
+
+                              resizeStartHeight =
+                                      params.height;
+
+                              resized = false;
+
+                              return true;
+
+                          case MotionEvent.ACTION_MOVE:
+
+                              int dx =
+                                      (int) (
+                                          event.getRawX() -
+                                          resizeStartRawX
+                                      );
+
+                              int dy =
+                                      (int) (
+                                          event.getRawY() -
+                                          resizeStartRawY
+                                      );
+
+                              if (
+                                  Math.abs(dx) >
+                                  dp(12) ||
+                                  Math.abs(dy) >
+                                  dp(12)
+                              ) {
+
+                                  resized = true;
+                              }
+
+                              if (resized) {
+
+                                  int screenWidth =
+                                          getResources()
+                                                  .getDisplayMetrics()
+                                                  .widthPixels;
+
+                                  int screenHeight =
+                                          getResources()
+                                                  .getDisplayMetrics()
+                                                  .heightPixels;
+
+                                  params.width =
+                                          Math.max(
+                                                  dp(270),
+                                                  Math.min(
+                                                          resizeStartWidth +
+                                                          dx,
+                                                          screenWidth
+                                                  )
+                                          );
+
+                                  params.height =
+                                          Math.max(
+                                                  dp(280),
+                                                  Math.min(
+                                                          resizeStartHeight +
+                                                          dy,
+                                                          screenHeight
+                                                  )
+                                          );
+
+                                  try {
+
+                                      windowManager
+                                              .updateViewLayout(
+                                                      rootView,
+                                                      params
+                                              );
+
+                                  } catch (
+                                      Exception ignored
+                                  ) {
+                                  }
+                              }
+
+                              return true;
+
+                          case MotionEvent.ACTION_UP:
+
+                              if (resized) {
+
+                                  saveSettings();
+
+                              } else {
+
+                                  insertNewLine();
+                              }
+
+                              return true;
+
+                          case MotionEvent.ACTION_CANCEL:
+
+                              if (resized) {
+
+                                  saveSettings();
+                              }
+
+                              return true;
+                      }
+
+                      return true;
+                  });
+              }
+
+              private void insertNewLine() {
+
+                  Editable editable =
+                          inputBox.getText();
+
+                  int start =
+                          inputBox.getSelectionStart();
+
+                  int end =
+                          inputBox.getSelectionEnd();
+
+                  if (start < 0) {
+
+                      start =
+                              editable.length();
+                  }
+
+                  if (end < 0) {
+
+                      end = start;
+                  }
+
+                  int min =
+                          Math.min(
+                                  start,
+                                  end
+                          );
+
+                  int max =
+                          Math.max(
+                                  start,
+                                  end
+                          );
+
+                  editable.replace(
+                          min,
+                          max,
+                          "\n"
+                  );
+
+                  inputBox.setSelection(
+                          Math.min(
+                                  min + 1,
+                                  editable.length()
+                          )
+                  );
+
+                  inputBox.requestFocus();
+
+                  showKeyboard();
+              }
+
+              /*
+               * ==============================
+               * 输入网址/百度搜索
+               * ==============================
+               */
+              private void openText() {
+
+                  String text =
+                          inputBox
+                                  .getText()
+                                  .toString()
+                                  .trim();
+
+                  if (text.isEmpty()) {
+
+                      Toast.makeText(
+                              this,
+                              "请输入网址或搜索内容",
+                              Toast.LENGTH_SHORT
+                      ).show();
+
+                      return;
+                  }
+
+                  if (
+                      text.contains("\n")
+                  ) {
+
+                      text =
+                              text.split("\n")[0]
+                                      .trim();
+                  }
+
+                  String lower =
+                          text.toLowerCase(
+                                  Locale.ROOT
+                          );
+
+                  boolean hasScheme =
+                          lower.startsWith(
+                                  "http://"
+                          ) ||
+                          lower.startsWith(
+                                  "https://"
+                          );
+
+                  String check =
+                          lower.replaceFirst(
+                                  "^https?://",
+                                  ""
+                          );
+
+                  int slash =
+                          check.indexOf("/");
+
+                  String host =
+                          slash >= 0
+                                  ? check.substring(
+                                          0,
+                                          slash
+                                  )
+                                  : check;
+
+                  boolean url =
+                          hasScheme ||
+                          (
+                              host.contains(".") &&
+                              !host.contains(" ") &&
+                              !host.contains("。")
+                          );
+
+                  String destination;
+
+                  if (url) {
+
+                      destination =
+                              hasScheme
+                                      ? text
+                                      : "https://" +
+                                      text;
+
+                      HistoryManager.add(
+                              this,
+                              text,
+                              "打开网址"
+                      );
+
+                  } else {
+
+                      try {
+
+                          destination =
+                                  "https://www.baidu.com/s?wd=" +
+                                  URLEncoder.encode(
+                                          text,
+                                          "UTF-8"
+                                  );
+
+                      } catch (
+                          Exception e
+                      ) {
+
+                          return;
+                      }
+
+                      HistoryManager.add(
+                              this,
+                              text,
+                              "百度搜索"
+                      );
+                  }
+
+                  try {
+
+                      Intent intent =
+                              new Intent(
+                                      Intent.ACTION_VIEW,
+                                      Uri.parse(
+                                              destination
+                                      )
+                              );
+
+                      intent.addFlags(
+                              Intent.FLAG_ACTIVITY_NEW_TASK
+                      );
+
+                      startActivity(intent);
+
+                      closeEverything();
+
+                  } catch (
+                          Exception e
+                  ) {
+
+                      Toast.makeText(
+                              this,
+                              "无法打开",
+                              Toast.LENGTH_SHORT
+                      ).show();
+                  }
+              }
+
+              private void saveInputHistory() {
+
+                  if (inputBox == null) return;
+
+                  String text =
+                          inputBox
+                                  .getText()
+                                  .toString()
+                                  .trim();
+
+                  if (!text.isEmpty()) {
+
+                      HistoryManager.add(
+                              this,
+                              text,
+                              "输入"
+                      );
+                  }
+              }
+
+              private void saveSettings() {
+
+                  if (params == null) return;
+
+                  prefs.edit()
+                          .putInt(
+                                  "x",
+                                  params.x
+                          )
+                          .putInt(
+                                  "y",
+                                  params.y
+                          )
+                          .putInt(
+                                  "width",
+                                  params.width
+                          )
+                          .putInt(
+                                  "height",
+                                  params.height
+                          )
+                          .putInt(
+                                  "alpha_percent",
+                                  alphaPercent
+                          )
+                          .putInt(
+                                  "font_color_index",
+                                  fontColorIndex
+                          )
+                          .apply();
+              }
+
+              private void showOverlay() {
+
+                  if (
+                      rootView != null
+                  ) {
+
+                      rootView.setVisibility(
+                              View.VISIBLE
+                      );
+
+                      hidden = false;
+                  }
+              }
+
+              private void showKeyboard() {
+
+                  if (
+                      inputBox == null ||
+                      hidden
+                  ) {
+
+                      return;
+                  }
+
+                  inputBox.postDelayed(
+                          () -> {
+
+                              try {
+
+                                  inputBox.setFocusable(
+                                          true
+                                  );
+
+                                  inputBox.setFocusableInTouchMode(
+                                          true
+                                  );
+
+                                  inputBox.requestFocus();
+
+                                  inputBox.setSelection(
+                                          inputBox
+                                                  .getText()
+                                                  .length()
+                                  );
+
+                                  InputMethodManager imm =
+                                          (InputMethodManager)
+                                          getSystemService(
+                                                  INPUT_METHOD_SERVICE
+                                          );
+
+                                  if (imm != null) {
+
+                                      imm.showSoftInput(
+                                              inputBox,
+                                              InputMethodManager.SHOW_IMPLICIT
+                                      );
+                                  }
+
+                              } catch (
+                                  Exception ignored
+                              ) {
+                              }
+
+                          },
+                          300
+                  );
+              }
+
+              private void hideKeyboard() {
+
+                  try {
+
+                      InputMethodManager imm =
+                              (InputMethodManager)
+                              getSystemService(
+                                      INPUT_METHOD_SERVICE
+                              );
+
+                      if (
+                          imm != null &&
+                          inputBox != null
+                      ) {
+
+                          imm.hideSoftInputFromWindow(
+                                  inputBox.getWindowToken(),
+                                  0
+                          );
+
+                          inputBox.clearFocus();
+                      }
+
+                  } catch (
+                      Exception ignored
+                  ) {
+                  }
+              }
+
+              private void closeEverything() {
+
+                  saveInputHistory();
+
+                  saveSettings();
+
+                  /*
+                   * 下次打开透明度重新90%。
+                   */
+                  prefs.edit()
+                          .putInt(
+                                  "alpha_percent",
+                                  90
+                          )
+                          .apply();
+
+                  hideKeyboard();
+
+                  try {
+
+                      ActivityManager manager =
+                              (ActivityManager)
+                              getSystemService(
+                                      ACTIVITY_SERVICE
+                              );
+
+                      if (manager != null) {
+
+                          for (
+                              ActivityManager.AppTask task :
+                              manager.getAppTasks()
+                          ) {
+
+                              task.finishAndRemoveTask();
+                          }
+                      }
+
+                  } catch (
+                      Exception ignored
+                  ) {
+                  }
+
+                  stopSelf();
+              }
+
+              @Override
+              public void onDestroy() {
+
+                  handler.removeCallbacksAndMessages(
+                          null
+                  );
+
+                  if (
+                      sensorManager != null
+                  ) {
+
+                      try {
+
+                          sensorManager.unregisterListener(
+                                  this
+                          );
+
+                      } catch (
+                          Exception ignored
+                      ) {
+                      }
+                  }
+
+                  if (
+                      locationManager != null &&
+                      locationListener != null
+                  ) {
+
+                      try {
+
+                          locationManager.removeUpdates(
+                                  locationListener
+                          );
+
+                      } catch (
+                          Exception ignored
+                      ) {
+                      }
+                  }
+
+                  if (
+                      params != null
+                  ) {
+
+                      prefs.edit()
+                              .putInt(
+                                      "x",
+                                      params.x
+                              )
+                              .putInt(
+                                      "y",
+                                      params.y
+                              )
+                              .putInt(
+                                      "width",
+                                      params.width
+                              )
+                              .putInt(
+                                      "height",
+                                      params.height
+                              )
+                              .putInt(
+                                      "font_color_index",
+                                      fontColorIndex
+                              )
+                              .apply();
+                  }
+
+                  if (
+                      windowManager != null &&
+                      rootView != null
+                  ) {
+
+                      try {
+
+                          windowManager.removeView(
+                                  rootView
+                          );
+
+                      } catch (
+                          Exception ignored
+                      ) {
+                      }
+                  }
+
+                  if (
+                      Build.VERSION.SDK_INT >=
+                      Build.VERSION_CODES.N
+                  ) {
+
+                      stopForeground(
+                              STOP_FOREGROUND_REMOVE
+                      );
+
+                  } else {
+
+                      stopForeground(true);
+                  }
+
+                  super.onDestroy();
+              }
+
+              @Override
+              public IBinder onBind(
+                      Intent intent
+              ) {
+
+                  return null;
+              }
+          }
+          EOF
+
+      - name: Download Gradle
+        shell: bash
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
+          unzip -q gradle-8.9-bin.zip
+          chmod +x gradle-8.9/bin/gradle
+
+      - name: Build APK
+        shell: bash
+        run: |
+          ./gradle-8.9/bin/gradle assembleDebug --stacktrace
+
+      - name: Prepare APK
+        shell: bash
+        run: |
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V15.1.apk
+          ls -lh FloatingInputApp-V15.1.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FloatingInputApp-V15.1-APK
+          path: FloatingInputApp-V15.1.apk
+          if-no-files-found: error
+          retention-days: 30
