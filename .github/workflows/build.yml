@@ -1,4 +1,4 @@
-name: Build Floating Input APK
+name: Build Floating Input APK V3
 
 on:
   workflow_dispatch:
@@ -23,6 +23,7 @@ jobs:
       - name: Create Android Project
         shell: bash
         run: |
+          rm -rf app
           mkdir -p app/src/main/java/com/jiexin/floatinginput
           mkdir -p app/src/main/res/values
 
@@ -71,8 +72,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 2
-                  versionName "2.0"
+                  versionCode 3
+                  versionName "3.0"
               }
           }
           EOF
@@ -80,23 +81,36 @@ jobs:
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+
+              <style
+                  name="AppTheme"
+                  parent="android:style/Theme.Material.Light.NoActionBar">
+
                   <item name="android:fontFamily">sans</item>
                   <item name="android:colorAccent">#3F51B5</item>
                   <item name="android:windowLightStatusBar">true</item>
                   <item name="android:statusBarColor">#FFFFFF</item>
                   <item name="android:navigationBarColor">#FFFFFF</item>
+
               </style>
+
           </resources>
           EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+          <manifest
+              xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission
+                  android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+              <uses-permission
+                  android:name="android.permission.FOREGROUND_SERVICE" />
+
+              <uses-permission
+                  android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
               <application
                   android:allowBackup="false"
@@ -110,11 +124,21 @@ jobs:
                       android:exported="true">
 
                       <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
+
+                          <action
+                              android:name="android.intent.action.MAIN" />
+
+                          <category
+                              android:name="android.intent.category.LAUNCHER" />
+
                       </intent-filter>
 
                   </activity>
+
+                  <activity
+                      android:name=".SettingsActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="false" />
 
                   <service
                       android:name=".FloatingService"
@@ -124,6 +148,7 @@ jobs:
                       <property
                           android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                           android:value="User controlled floating text input overlay" />
+
                   </service>
 
               </application>
@@ -136,135 +161,313 @@ jobs:
 
           import android.app.Activity;
           import android.content.Intent;
-          import android.graphics.Color;
           import android.net.Uri;
           import android.os.Build;
           import android.os.Bundle;
           import android.provider.Settings;
+          import android.widget.Toast;
+
+          public class MainActivity extends Activity {
+
+              private boolean permissionRequested = false;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  openFloatingInput();
+              }
+
+              @Override
+              protected void onResume() {
+                  super.onResume();
+
+                  if (permissionRequested &&
+                          Settings.canDrawOverlays(this)) {
+
+                      permissionRequested = false;
+
+                      startFloatingService();
+
+                      moveTaskToBack(true);
+                  }
+              }
+
+              private void openFloatingInput() {
+
+                  if (Settings.canDrawOverlays(this)) {
+
+                      startFloatingService();
+
+                      moveTaskToBack(true);
+
+                  } else {
+
+                      permissionRequested = true;
+
+                      Toast.makeText(
+                              this,
+                              "第一次使用，请开启“显示在其他应用上层”权限",
+                              Toast.LENGTH_LONG
+                      ).show();
+
+                      Intent intent = new Intent(
+                              Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                              Uri.parse(
+                                      "package:" + getPackageName()
+                              )
+                      );
+
+                      startActivity(intent);
+                  }
+              }
+
+              private void startFloatingService() {
+
+                  Intent serviceIntent =
+                          new Intent(
+                                  this,
+                                  FloatingService.class
+                          );
+
+                  if (Build.VERSION.SDK_INT >=
+                          Build.VERSION_CODES.O) {
+
+                      startForegroundService(
+                              serviceIntent
+                      );
+
+                  } else {
+
+                      startService(
+                              serviceIntent
+                      );
+                  }
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/jiexin/floatinginput/SettingsActivity.java <<'EOF'
+          package com.jiexin.floatinginput;
+
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.graphics.Color;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.provider.Settings;
+          import android.view.Gravity;
           import android.view.ViewGroup;
           import android.widget.Button;
           import android.widget.LinearLayout;
           import android.widget.TextView;
           import android.widget.Toast;
 
-          public class MainActivity extends Activity {
+          public class SettingsActivity extends Activity {
 
               private int dp(int value) {
-                  return (int) (value * getResources().getDisplayMetrics().density);
+                  return (int) (
+                          value *
+                          getResources()
+                                  .getDisplayMetrics()
+                                  .density
+                  );
               }
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
 
-                  LinearLayout root = new LinearLayout(this);
-                  root.setOrientation(LinearLayout.VERTICAL);
-                  root.setPadding(dp(22), dp(35), dp(22), dp(25));
-                  root.setBackgroundColor(Color.rgb(245, 247, 250));
+                  LinearLayout root =
+                          new LinearLayout(this);
 
-                  TextView title = new TextView(this);
-                  title.setText("悬浮输入框");
-                  title.setTextSize(28);
-                  title.setTextColor(Color.rgb(25, 35, 50));
-                  title.setPadding(0, 0, 0, dp(15));
-                  root.addView(title);
-
-                  TextView info = new TextView(this);
-                  info.setText(
-                          "使用方法：\n\n" +
-                          "① 开启悬浮窗权限\n" +
-                          "② 点击显示悬浮输入框\n" +
-                          "③ 点击输入框即可呼出输入法\n" +
-                          "④ 长按输入框约0.5秒并拖动可移动位置\n" +
-                          "⑤ 拖动右下角 ↘ 可自由调节宽度和高度\n" +
-                          "⑥ 点击 − / + 调节整体透明度\n\n" +
-                          "透明度：90%、70%、50%、40%、30%、20%"
+                  root.setOrientation(
+                          LinearLayout.VERTICAL
                   );
-                  info.setTextSize(17);
-                  info.setTextColor(Color.DKGRAY);
-                  info.setPadding(0, 0, 0, dp(20));
-                  root.addView(info);
 
-                  Button permission = new Button(this);
-                  permission.setText("① 开启悬浮窗权限");
-                  permission.setAllCaps(false);
+                  root.setPadding(
+                          dp(22),
+                          dp(35),
+                          dp(22),
+                          dp(25)
+                  );
 
-                  permission.setOnClickListener(v -> {
-                      Intent intent = new Intent(
-                              Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                              Uri.parse("package:" + getPackageName())
-                      );
-                      startActivity(intent);
-                  });
-
-                  addButton(root, permission);
-
-                  Button show = new Button(this);
-                  show.setText("② 显示悬浮输入框");
-                  show.setAllCaps(false);
-
-                  show.setOnClickListener(v -> {
-
-                      if (!Settings.canDrawOverlays(this)) {
-                          Toast.makeText(
-                                  this,
-                                  "请先开启悬浮窗权限",
-                                  Toast.LENGTH_SHORT
-                          ).show();
-
-                          Intent permissionIntent = new Intent(
-                                  Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                  Uri.parse("package:" + getPackageName())
-                          );
-                          startActivity(permissionIntent);
-                          return;
-                      }
-
-                      Intent serviceIntent =
-                              new Intent(this, FloatingService.class);
-
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                          startForegroundService(serviceIntent);
-                      } else {
-                          startService(serviceIntent);
-                      }
-
-                      Toast.makeText(
-                              this,
-                              "悬浮输入框已显示",
-                              Toast.LENGTH_SHORT
-                      ).show();
-                  });
-
-                  addButton(root, show);
-
-                  Button close = new Button(this);
-                  close.setText("关闭悬浮输入框");
-                  close.setAllCaps(false);
-
-                  close.setOnClickListener(v ->
-                          stopService(
-                                  new Intent(this, FloatingService.class)
+                  root.setBackgroundColor(
+                          Color.rgb(
+                                  245,
+                                  247,
+                                  250
                           )
                   );
 
-                  addButton(root, close);
+                  TextView title =
+                          new TextView(this);
 
-                  setContentView(root);
-              }
+                  title.setText(
+                          "悬浮输入框设置"
+                  );
 
-              private void addButton(
-                      LinearLayout root,
-                      Button button
-              ) {
-                  LinearLayout.LayoutParams lp =
+                  title.setTextSize(27);
+
+                  title.setTextColor(
+                          Color.rgb(
+                                  25,
+                                  35,
+                                  50
+                          )
+                  );
+
+                  title.setPadding(
+                          0,
+                          0,
+                          0,
+                          dp(18)
+                  );
+
+                  root.addView(title);
+
+                  TextView info =
+                          new TextView(this);
+
+                  info.setText(
+                          "使用说明\n\n" +
+                          "• 点击输入框：输入文字\n\n" +
+                          "• 按住顶部“⇕ 移动”按钮2秒后，再拖动：移动整个悬浮框\n\n" +
+                          "• 拖动右下角 ↘：自由改变输入框宽度和高度\n\n" +
+                          "• − / +：调节透明度\n\n" +
+                          "• 透明度共6档：90%、70%、50%、40%、30%、20%\n\n" +
+                          "• 顶部关闭：关闭悬浮输入框\n\n" +
+                          "• 顶部设置：打开此设置页面"
+                  );
+
+                  info.setTextSize(17);
+
+                  info.setTextColor(
+                          Color.DKGRAY
+                  );
+
+                  info.setLineSpacing(
+                          0,
+                          1.2f
+                  );
+
+                  root.addView(
+                          info,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  0,
+                                  1f
+                          )
+                  );
+
+                  Button permission =
+                          new Button(this);
+
+                  permission.setText(
+                          "悬浮窗权限设置"
+                  );
+
+                  permission.setAllCaps(false);
+
+                  permission.setOnClickListener(v -> {
+
+                      Intent intent =
+                              new Intent(
+                                      Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                      Uri.parse(
+                                              "package:" +
+                                              getPackageName()
+                                      )
+                              );
+
+                      startActivity(intent);
+                  });
+
+                  LinearLayout.LayoutParams buttonLp =
                           new LinearLayout.LayoutParams(
                                   ViewGroup.LayoutParams.MATCH_PARENT,
                                   dp(58)
                           );
 
-                  lp.bottomMargin = dp(12);
-                  root.addView(button, lp);
+                  buttonLp.bottomMargin =
+                          dp(12);
+
+                  root.addView(
+                          permission,
+                          buttonLp
+                  );
+
+                  Button reset =
+                          new Button(this);
+
+                  reset.setText(
+                          "恢复默认位置、大小和透明度"
+                  );
+
+                  reset.setAllCaps(false);
+
+                  reset.setOnClickListener(v -> {
+
+                      getSharedPreferences(
+                              "floating_settings",
+                              MODE_PRIVATE
+                      )
+                      .edit()
+                      .clear()
+                      .apply();
+
+                      Toast.makeText(
+                              this,
+                              "已恢复默认设置，请重新打开悬浮输入框",
+                              Toast.LENGTH_SHORT
+                      ).show();
+
+                      stopService(
+                              new Intent(
+                                      this,
+                                      FloatingService.class
+                              )
+                      );
+
+                      finish();
+                  });
+
+                  LinearLayout.LayoutParams resetLp =
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  dp(58)
+                          );
+
+                  resetLp.bottomMargin =
+                          dp(12);
+
+                  root.addView(
+                          reset,
+                          resetLp
+                  );
+
+                  Button back =
+                          new Button(this);
+
+                  back.setText(
+                          "返回悬浮输入框"
+                  );
+
+                  back.setAllCaps(false);
+
+                  back.setOnClickListener(v ->
+                          finish()
+                  );
+
+                  root.addView(
+                          back,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  dp(58)
+                          )
+                  );
+
+                  setContentView(root);
               }
           }
           EOF
@@ -277,42 +480,60 @@ jobs:
           import android.app.NotificationManager;
           import android.app.PendingIntent;
           import android.app.Service;
+
           import android.content.Context;
           import android.content.Intent;
           import android.content.SharedPreferences;
+
           import android.graphics.Color;
           import android.graphics.PixelFormat;
           import android.graphics.drawable.GradientDrawable;
+
           import android.os.Build;
+          import android.os.Handler;
           import android.os.IBinder;
-          import android.os.SystemClock;
+          import android.os.Looper;
+
           import android.view.Gravity;
           import android.view.MotionEvent;
-          import android.view.ViewConfiguration;
           import android.view.ViewGroup;
           import android.view.WindowManager;
-          import android.view.inputmethod.InputMethodManager;
+
           import android.widget.Button;
           import android.widget.EditText;
           import android.widget.FrameLayout;
           import android.widget.LinearLayout;
           import android.widget.TextView;
+          import android.widget.Toast;
 
           public class FloatingService extends Service {
 
               private static final String CHANNEL_ID =
-                      "floating_input_channel";
+                      "floating_input_channel_v3";
 
-              private static final int NOTIFICATION_ID = 1001;
+              private static final int NOTIFICATION_ID =
+                      1003;
 
               private WindowManager windowManager;
+
               private LinearLayout rootView;
+
               private EditText inputBox;
+
               private TextView alphaText;
+
               private TextView resizeHandle;
+
+              private TextView moveHandle;
+
               private WindowManager.LayoutParams params;
 
               private SharedPreferences prefs;
+
+              private Handler handler =
+                      new Handler(
+                              Looper.getMainLooper()
+                      );
 
               private final float[] alphaLevels = {
                       0.90f,
@@ -334,14 +555,19 @@ jobs:
 
               private int alphaIndex = 0;
 
-              private float downRawX;
-              private float downRawY;
+              private float moveDownRawX;
+              private float moveDownRawY;
 
-              private int startX;
-              private int startY;
+              private int moveStartX;
+              private int moveStartY;
 
-              private long downTime;
-              private boolean moving = false;
+              private boolean moveUnlocked =
+                      false;
+
+              private boolean moveFingerDown =
+                      false;
+
+              private Runnable unlockMoveRunnable;
 
               private float resizeRawX;
               private float resizeRawY;
@@ -350,20 +576,25 @@ jobs:
               private int startHeight;
 
               private int dp(int value) {
+
                   return (int) (
                           value *
-                          getResources().getDisplayMetrics().density
+                          getResources()
+                                  .getDisplayMetrics()
+                                  .density
                   );
               }
 
               @Override
               public void onCreate() {
+
                   super.onCreate();
 
-                  prefs = getSharedPreferences(
-                          "floating_settings",
-                          MODE_PRIVATE
-                  );
+                  prefs =
+                          getSharedPreferences(
+                                  "floating_settings",
+                                  MODE_PRIVATE
+                          );
 
                   createNotificationChannel();
 
@@ -374,9 +605,25 @@ jobs:
 
                   windowManager =
                           (WindowManager)
-                          getSystemService(WINDOW_SERVICE);
+                          getSystemService(
+                                  WINDOW_SERVICE
+                          );
 
                   createFloatingWindow();
+              }
+
+              @Override
+              public int onStartCommand(
+                      Intent intent,
+                      int flags,
+                      int startId
+              ) {
+
+                  if (rootView == null) {
+                      createFloatingWindow();
+                  }
+
+                  return START_STICKY;
               }
 
               private void createNotificationChannel() {
@@ -388,7 +635,8 @@ jobs:
                               new NotificationChannel(
                                       CHANNEL_ID,
                                       "悬浮输入框",
-                                      NotificationManager.IMPORTANCE_LOW
+                                      NotificationManager
+                                              .IMPORTANCE_LOW
                               );
 
                       channel.setDescription(
@@ -402,14 +650,19 @@ jobs:
                                       NotificationManager.class
                               );
 
-                      manager.createNotificationChannel(channel);
+                      manager.createNotificationChannel(
+                              channel
+                      );
                   }
               }
 
               private Notification createNotification() {
 
                   Intent intent =
-                          new Intent(this, MainActivity.class);
+                          new Intent(
+                                  this,
+                                  SettingsActivity.class
+                          );
 
                   PendingIntent pendingIntent =
                           PendingIntent.getActivity(
@@ -434,7 +687,9 @@ jobs:
                   } else {
 
                       builder =
-                              new Notification.Builder(this);
+                              new Notification.Builder(
+                                      this
+                              );
                   }
 
                   return builder
@@ -442,12 +697,15 @@ jobs:
                                   "悬浮输入框正在运行"
                           )
                           .setContentText(
-                                  "点击返回设置"
+                                  "点击打开设置"
                           )
                           .setSmallIcon(
-                                  android.R.drawable.ic_menu_edit
+                                  android.R.drawable
+                                          .ic_menu_edit
                           )
-                          .setContentIntent(pendingIntent)
+                          .setContentIntent(
+                                  pendingIntent
+                          )
                           .setOngoing(true)
                           .build();
               }
@@ -462,9 +720,13 @@ jobs:
                           new GradientDrawable();
 
                   drawable.setColor(color);
-                  drawable.setCornerRadius(dp(radius));
+
+                  drawable.setCornerRadius(
+                          dp(radius)
+                  );
 
                   if (strokeColor != null) {
+
                       drawable.setStroke(
                               dp(1),
                               strokeColor
@@ -474,7 +736,53 @@ jobs:
                   return drawable;
               }
 
+              private TextView createTopButton(
+                      String text
+              ) {
+
+                  TextView button =
+                          new TextView(this);
+
+                  button.setText(text);
+
+                  button.setTextSize(15);
+
+                  button.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  button.setTextColor(
+                          Color.rgb(
+                                  35,
+                                  35,
+                                  35
+                          )
+                  );
+
+                  button.setBackground(
+                          background(
+                                  Color.rgb(
+                                          238,
+                                          241,
+                                          246
+                                  ),
+                                  7,
+                                  Color.rgb(
+                                          200,
+                                          205,
+                                          215
+                                  )
+                          )
+                  );
+
+                  return button;
+              }
+
               private void createFloatingWindow() {
+
+                  if (rootView != null) {
+                      return;
+                  }
 
                   rootView =
                           new LinearLayout(this);
@@ -484,17 +792,113 @@ jobs:
                   );
 
                   rootView.setPadding(
-                          dp(8),
-                          dp(8),
-                          dp(8),
-                          dp(8)
+                          dp(7),
+                          dp(7),
+                          dp(7),
+                          dp(7)
                   );
 
                   rootView.setBackground(
                           background(
                                   Color.WHITE,
                                   12,
-                                  Color.rgb(90, 90, 90)
+                                  Color.rgb(
+                                          80,
+                                          80,
+                                          80
+                                  )
+                          )
+                  );
+
+                  LinearLayout topBar =
+                          new LinearLayout(this);
+
+                  topBar.setOrientation(
+                          LinearLayout.HORIZONTAL
+                  );
+
+                  topBar.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  TextView closeButton =
+                          createTopButton(
+                                  "关闭"
+                          );
+
+                  TextView settingsButton =
+                          createTopButton(
+                                  "设置"
+                          );
+
+                  moveHandle =
+                          createTopButton(
+                                  "⇕ 移动"
+                          );
+
+                  LinearLayout.LayoutParams topButtonLp =
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(42),
+                                  1f
+                          );
+
+                  topButtonLp.setMargins(
+                          dp(2),
+                          dp(2),
+                          dp(2),
+                          dp(4)
+                  );
+
+                  topBar.addView(
+                          closeButton,
+                          topButtonLp
+                  );
+
+                  LinearLayout.LayoutParams settingsLp =
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(42),
+                                  1f
+                          );
+
+                  settingsLp.setMargins(
+                          dp(2),
+                          dp(2),
+                          dp(2),
+                          dp(4)
+                  );
+
+                  topBar.addView(
+                          settingsButton,
+                          settingsLp
+                  );
+
+                  LinearLayout.LayoutParams moveLp =
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(42),
+                                  1f
+                          );
+
+                  moveLp.setMargins(
+                          dp(2),
+                          dp(2),
+                          dp(2),
+                          dp(4)
+                  );
+
+                  topBar.addView(
+                          moveHandle,
+                          moveLp
+                  );
+
+                  rootView.addView(
+                          topBar,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams
+                                          .MATCH_PARENT,
+                                  dp(48)
                           )
                   );
 
@@ -509,6 +913,7 @@ jobs:
                   );
 
                   inputBox.setTextSize(18);
+
                   inputBox.setGravity(
                           Gravity.TOP |
                           Gravity.START
@@ -523,13 +928,14 @@ jobs:
                   );
 
                   inputBox.setSingleLine(false);
+
                   inputBox.setMinLines(2);
 
                   inputBox.setPadding(
                           dp(12),
                           dp(10),
-                          dp(48),
-                          dp(45)
+                          dp(50),
+                          dp(48)
                   );
 
                   inputBox.setBackground(
@@ -540,22 +946,27 @@ jobs:
                           )
                   );
 
-                  FrameLayout.LayoutParams inputLp =
-                          new FrameLayout.LayoutParams(
-                                  ViewGroup.LayoutParams.MATCH_PARENT,
-                                  ViewGroup.LayoutParams.MATCH_PARENT
-                          );
-
                   inputFrame.addView(
                           inputBox,
-                          inputLp
+                          new FrameLayout.LayoutParams(
+                                  ViewGroup.LayoutParams
+                                          .MATCH_PARENT,
+                                  ViewGroup.LayoutParams
+                                          .MATCH_PARENT
+                          )
                   );
 
                   resizeHandle =
                           new TextView(this);
 
-                  resizeHandle.setText("↘");
-                  resizeHandle.setTextSize(27);
+                  resizeHandle.setText(
+                          "↘"
+                  );
+
+                  resizeHandle.setTextSize(
+                          28
+                  );
+
                   resizeHandle.setGravity(
                           Gravity.CENTER
                   );
@@ -571,7 +982,7 @@ jobs:
                   resizeHandle.setBackground(
                           background(
                                   Color.argb(
-                                          60,
+                                          70,
                                           80,
                                           120,
                                           220
@@ -583,8 +994,8 @@ jobs:
 
                   FrameLayout.LayoutParams resizeLp =
                           new FrameLayout.LayoutParams(
-                                  dp(44),
-                                  dp(44),
+                                  dp(46),
+                                  dp(46),
                                   Gravity.BOTTOM |
                                   Gravity.END
                           );
@@ -592,6 +1003,16 @@ jobs:
                   inputFrame.addView(
                           resizeHandle,
                           resizeLp
+                  );
+
+                  rootView.addView(
+                          inputFrame,
+                          new LinearLayout.LayoutParams(
+                                  ViewGroup.LayoutParams
+                                          .MATCH_PARENT,
+                                  0,
+                                  1f
+                          )
                   );
 
                   LinearLayout controls =
@@ -607,7 +1028,7 @@ jobs:
 
                   controls.setPadding(
                           0,
-                          dp(5),
+                          dp(4),
                           0,
                           0
                   );
@@ -616,22 +1037,39 @@ jobs:
                           new Button(this);
 
                   minus.setText("−");
+
                   minus.setTextSize(23);
+
                   minus.setAllCaps(false);
-                  minus.setPadding(0, 0, 0, 0);
+
+                  minus.setPadding(
+                          0,
+                          0,
+                          0,
+                          0
+                  );
 
                   Button plus =
                           new Button(this);
 
                   plus.setText("+");
+
                   plus.setTextSize(23);
+
                   plus.setAllCaps(false);
-                  plus.setPadding(0, 0, 0, 0);
+
+                  plus.setPadding(
+                          0,
+                          0,
+                          0,
+                          0
+                  );
 
                   alphaText =
                           new TextView(this);
 
                   alphaText.setTextSize(16);
+
                   alphaText.setGravity(
                           Gravity.CENTER
                   );
@@ -646,8 +1084,11 @@ jobs:
                           alphaIndex <
                           alphaLevels.length - 1
                       ) {
+
                           alphaIndex++;
+
                           updateAlpha();
+
                           saveSettings();
                       }
                   });
@@ -655,8 +1096,11 @@ jobs:
                   plus.setOnClickListener(v -> {
 
                       if (alphaIndex > 0) {
+
                           alphaIndex--;
+
                           updateAlpha();
+
                           saveSettings();
                       }
                   });
@@ -687,18 +1131,10 @@ jobs:
                   );
 
                   rootView.addView(
-                          inputFrame,
-                          new LinearLayout.LayoutParams(
-                                  ViewGroup.LayoutParams.MATCH_PARENT,
-                                  0,
-                                  1f
-                          )
-                  );
-
-                  rootView.addView(
                           controls,
                           new LinearLayout.LayoutParams(
-                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  ViewGroup.LayoutParams
+                                          .MATCH_PARENT,
                                   dp(55)
                           )
                   );
@@ -709,25 +1145,30 @@ jobs:
                       Build.VERSION.SDK_INT >=
                       Build.VERSION_CODES.O
                   ) {
+
                       type =
-                              WindowManager.LayoutParams
+                              WindowManager
+                                      .LayoutParams
                                       .TYPE_APPLICATION_OVERLAY;
+
                   } else {
+
                       type =
-                              WindowManager.LayoutParams
+                              WindowManager
+                                      .LayoutParams
                                       .TYPE_PHONE;
                   }
 
                   int width =
                           prefs.getInt(
                                   "width",
-                                  dp(320)
+                                  dp(330)
                           );
 
                   int height =
                           prefs.getInt(
                                   "height",
-                                  dp(230)
+                                  dp(300)
                           );
 
                   alphaIndex =
@@ -736,14 +1177,12 @@ jobs:
                                   0
                           );
 
-                  if (alphaIndex < 0) {
-                      alphaIndex = 0;
-                  }
-
                   if (
+                      alphaIndex < 0 ||
                       alphaIndex >=
                       alphaLevels.length
                   ) {
+
                       alphaIndex = 0;
                   }
 
@@ -766,37 +1205,102 @@ jobs:
                   params.x =
                           prefs.getInt(
                                   "x",
-                                  dp(30)
+                                  dp(25)
                           );
 
                   params.y =
                           prefs.getInt(
                                   "y",
-                                  dp(120)
+                                  dp(100)
                           );
 
                   params.softInputMode =
                           WindowManager.LayoutParams
                                   .SOFT_INPUT_ADJUST_RESIZE;
 
-                  windowManager.addView(
-                          rootView,
-                          params
-                  );
+                  try {
+
+                      windowManager.addView(
+                              rootView,
+                              params
+                      );
+
+                  } catch (Exception e) {
+
+                      rootView = null;
+
+                      stopSelf();
+
+                      return;
+                  }
 
                   updateAlpha();
-                  setupMove();
+
+                  setupCloseButton(
+                          closeButton
+                  );
+
+                  setupSettingsButton(
+                          settingsButton
+                  );
+
+                  setupMoveHandle();
+
                   setupResize();
               }
 
-              private void setupMove() {
+              private void setupCloseButton(
+                      TextView closeButton
+              ) {
 
-                  final int touchSlop =
-                          ViewConfiguration
-                                  .get(this)
-                                  .getScaledTouchSlop();
+                  closeButton.setOnClickListener(v -> {
 
-                  inputBox.setOnTouchListener(
+                      stopSelf();
+                  });
+              }
+
+              private void setupSettingsButton(
+                      TextView settingsButton
+              ) {
+
+                  settingsButton.setOnClickListener(v -> {
+
+                      Intent intent =
+                              new Intent(
+                                      this,
+                                      SettingsActivity.class
+                              );
+
+                      intent.addFlags(
+                              Intent.FLAG_ACTIVITY_NEW_TASK
+                      );
+
+                      startActivity(intent);
+                  });
+              }
+
+              private void setupMoveHandle() {
+
+                  unlockMoveRunnable =
+                          () -> {
+
+                              if (moveFingerDown) {
+
+                                  moveUnlocked = true;
+
+                                  moveHandle.setText(
+                                          "⇕ 可移动"
+                                  );
+
+                                  Toast.makeText(
+                                          this,
+                                          "现在可以拖动位置",
+                                          Toast.LENGTH_SHORT
+                                  ).show();
+                              }
+                          };
+
+                  moveHandle.setOnTouchListener(
                           (view, event) -> {
 
                       switch (
@@ -805,61 +1309,57 @@ jobs:
 
                           case MotionEvent.ACTION_DOWN:
 
-                              downRawX =
+                              moveFingerDown =
+                                      true;
+
+                              moveUnlocked =
+                                      false;
+
+                              moveDownRawX =
                                       event.getRawX();
 
-                              downRawY =
+                              moveDownRawY =
                                       event.getRawY();
 
-                              startX =
+                              moveStartX =
                                       params.x;
 
-                              startY =
+                              moveStartY =
                                       params.y;
 
-                              downTime =
-                                      SystemClock
-                                              .uptimeMillis();
+                              moveHandle.setText(
+                                      "按住2秒…"
+                              );
 
-                              moving = false;
+                              handler.removeCallbacks(
+                                      unlockMoveRunnable
+                              );
 
-                              return false;
+                              handler.postDelayed(
+                                      unlockMoveRunnable,
+                                      2000
+                              );
+
+                              return true;
 
                           case MotionEvent.ACTION_MOVE:
 
-                              long elapsed =
-                                      SystemClock
-                                              .uptimeMillis()
-                                      - downTime;
+                              if (moveUnlocked) {
 
-                              float dx =
-                                      event.getRawX()
-                                      - downRawX;
+                                  float dx =
+                                          event.getRawX() -
+                                          moveDownRawX;
 
-                              float dy =
-                                      event.getRawY()
-                                      - downRawY;
-
-                              if (
-                                  elapsed >= 500 &&
-                                  (
-                                      Math.abs(dx) >
-                                      touchSlop ||
-                                      Math.abs(dy) >
-                                      touchSlop
-                                  )
-                              ) {
-
-                                  moving = true;
-
-                                  inputBox.clearFocus();
+                                  float dy =
+                                          event.getRawY() -
+                                          moveDownRawY;
 
                                   params.x =
-                                          startX +
+                                          moveStartX +
                                           (int) dx;
 
                                   params.y =
-                                          startY +
+                                          moveStartY +
                                           (int) dy;
 
                                   windowManager
@@ -867,46 +1367,53 @@ jobs:
                                                   rootView,
                                                   params
                                           );
-
-                                  return true;
                               }
 
-                              return false;
+                              return true;
 
                           case MotionEvent.ACTION_UP:
 
-                              if (moving) {
+                              moveFingerDown =
+                                      false;
 
-                                  moving = false;
-                                  saveSettings();
-                                  return true;
-                              }
-
-                              inputBox
-                                      .requestFocus();
-
-                              InputMethodManager imm =
-                                      (InputMethodManager)
-                                      getSystemService(
-                                              Context
-                                                      .INPUT_METHOD_SERVICE
-                                      );
-
-                              imm.showSoftInput(
-                                      inputBox,
-                                      InputMethodManager
-                                              .SHOW_IMPLICIT
+                              handler.removeCallbacks(
+                                      unlockMoveRunnable
                               );
 
-                              return false;
+                              if (moveUnlocked) {
+
+                                  saveSettings();
+                              }
+
+                              moveUnlocked =
+                                      false;
+
+                              moveHandle.setText(
+                                      "⇕ 移动"
+                              );
+
+                              return true;
 
                           case MotionEvent.ACTION_CANCEL:
 
-                              moving = false;
-                              return false;
+                              moveFingerDown =
+                                      false;
+
+                              moveUnlocked =
+                                      false;
+
+                              handler.removeCallbacks(
+                                      unlockMoveRunnable
+                              );
+
+                              moveHandle.setText(
+                                      "⇕ 移动"
+                              );
+
+                              return true;
                       }
 
-                      return false;
+                      return true;
                   });
               }
 
@@ -939,14 +1446,14 @@ jobs:
 
                               int dx =
                                       (int) (
-                                          event.getRawX()
-                                          - resizeRawX
+                                          event.getRawX() -
+                                          resizeRawX
                                       );
 
                               int dy =
                                       (int) (
-                                          event.getRawY()
-                                          - resizeRawY
+                                          event.getRawY() -
+                                          resizeRawY
                                       );
 
                               int screenWidth =
@@ -967,7 +1474,7 @@ jobs:
 
                               newWidth =
                                       Math.max(
-                                              dp(200),
+                                              dp(230),
                                               Math.min(
                                                       newWidth,
                                                       screenWidth
@@ -976,7 +1483,7 @@ jobs:
 
                               newHeight =
                                       Math.max(
-                                              dp(140),
+                                              dp(210),
                                               Math.min(
                                                       newHeight,
                                                       screenHeight
@@ -998,9 +1505,11 @@ jobs:
                               return true;
 
                           case MotionEvent.ACTION_UP:
+
                           case MotionEvent.ACTION_CANCEL:
 
                               saveSettings();
+
                               return true;
                       }
 
@@ -1009,6 +1518,10 @@ jobs:
               }
 
               private void updateAlpha() {
+
+                  if (rootView == null) {
+                      return;
+                  }
 
                   rootView.setAlpha(
                           alphaLevels[
@@ -1056,6 +1569,10 @@ jobs:
               @Override
               public void onDestroy() {
 
+                  handler.removeCallbacksAndMessages(
+                          null
+                  );
+
                   saveSettings();
 
                   if (
@@ -1064,24 +1581,30 @@ jobs:
                   ) {
 
                       try {
-                          windowManager
-                                  .removeView(
-                                          rootView
-                                  );
+
+                          windowManager.removeView(
+                                  rootView
+                          );
+
                       } catch (
                               Exception ignored
                       ) {
                       }
                   }
 
+                  rootView = null;
+
                   if (
                       Build.VERSION.SDK_INT >=
                       Build.VERSION_CODES.N
                   ) {
+
                       stopForeground(
                               STOP_FOREGROUND_REMOVE
                       );
+
                   } else {
+
                       stopForeground(true);
                   }
 
@@ -1092,6 +1615,7 @@ jobs:
               public IBinder onBind(
                       Intent intent
               ) {
+
                   return null;
               }
           }
@@ -1113,11 +1637,11 @@ jobs:
       - name: Prepare APK
         shell: bash
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V2.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V3.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V2-APK
-          path: FloatingInputApp-V2.apk
+          name: FloatingInputApp-V3-APK
+          path: FloatingInputApp-V3.apk
           retention-days: 30
