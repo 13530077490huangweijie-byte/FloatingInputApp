@@ -1,4 +1,4 @@
-name: Build Floating Input APK V3
+name: Build Floating Input APK V4
 
 on:
   workflow_dispatch:
@@ -72,8 +72,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 3
-                  versionName "3.0"
+                  versionCode 4
+                  versionName "4.0"
               }
           }
           EOF
@@ -81,36 +81,23 @@ jobs:
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-
-              <style
-                  name="AppTheme"
-                  parent="android:style/Theme.Material.Light.NoActionBar">
-
+              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
                   <item name="android:fontFamily">sans</item>
                   <item name="android:colorAccent">#3F51B5</item>
                   <item name="android:windowLightStatusBar">true</item>
                   <item name="android:statusBarColor">#FFFFFF</item>
                   <item name="android:navigationBarColor">#FFFFFF</item>
-
               </style>
-
           </resources>
           EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-          <manifest
-              xmlns:android="http://schemas.android.com/apk/res/android">
-
-              <uses-permission
-                  android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
-              <uses-permission
-                  android:name="android.permission.FOREGROUND_SERVICE" />
-
-              <uses-permission
-                  android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
               <application
                   android:allowBackup="false"
@@ -124,13 +111,8 @@ jobs:
                       android:exported="true">
 
                       <intent-filter>
-
-                          <action
-                              android:name="android.intent.action.MAIN" />
-
-                          <category
-                              android:name="android.intent.category.LAUNCHER" />
-
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
 
                   </activity>
@@ -174,7 +156,6 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-
                   openFloatingInput();
               }
 
@@ -186,9 +167,7 @@ jobs:
                           Settings.canDrawOverlays(this)) {
 
                       permissionRequested = false;
-
                       startFloatingService();
-
                       moveTaskToBack(true);
                   }
               }
@@ -198,7 +177,6 @@ jobs:
                   if (Settings.canDrawOverlays(this)) {
 
                       startFloatingService();
-
                       moveTaskToBack(true);
 
                   } else {
@@ -213,9 +191,7 @@ jobs:
 
                       Intent intent = new Intent(
                               Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                              Uri.parse(
-                                      "package:" + getPackageName()
-                              )
+                              Uri.parse("package:" + getPackageName())
                       );
 
                       startActivity(intent);
@@ -225,23 +201,12 @@ jobs:
               private void startFloatingService() {
 
                   Intent serviceIntent =
-                          new Intent(
-                                  this,
-                                  FloatingService.class
-                          );
+                          new Intent(this, FloatingService.class);
 
-                  if (Build.VERSION.SDK_INT >=
-                          Build.VERSION_CODES.O) {
-
-                      startForegroundService(
-                              serviceIntent
-                      );
-
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      startForegroundService(serviceIntent);
                   } else {
-
-                      startService(
-                              serviceIntent
-                      );
+                      startService(serviceIntent);
                   }
               }
           }
@@ -256,7 +221,6 @@ jobs:
           import android.net.Uri;
           import android.os.Bundle;
           import android.provider.Settings;
-          import android.view.Gravity;
           import android.view.ViewGroup;
           import android.widget.Button;
           import android.widget.LinearLayout;
@@ -268,9 +232,7 @@ jobs:
               private int dp(int value) {
                   return (int) (
                           value *
-                          getResources()
-                                  .getDisplayMetrics()
-                                  .density
+                          getResources().getDisplayMetrics().density
                   );
               }
 
@@ -278,13 +240,8 @@ jobs:
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
 
-                  LinearLayout root =
-                          new LinearLayout(this);
-
-                  root.setOrientation(
-                          LinearLayout.VERTICAL
-                  );
-
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
                   root.setPadding(
                           dp(22),
                           dp(35),
@@ -293,30 +250,15 @@ jobs:
                   );
 
                   root.setBackgroundColor(
-                          Color.rgb(
-                                  245,
-                                  247,
-                                  250
-                          )
+                          Color.rgb(245, 247, 250)
                   );
 
-                  TextView title =
-                          new TextView(this);
-
-                  title.setText(
-                          "悬浮输入框设置"
-                  );
-
+                  TextView title = new TextView(this);
+                  title.setText("悬浮输入框设置");
                   title.setTextSize(27);
-
                   title.setTextColor(
-                          Color.rgb(
-                                  25,
-                                  35,
-                                  50
-                          )
+                          Color.rgb(25, 35, 50)
                   );
-
                   title.setPadding(
                           0,
                           0,
@@ -326,30 +268,22 @@ jobs:
 
                   root.addView(title);
 
-                  TextView info =
-                          new TextView(this);
+                  TextView info = new TextView(this);
 
                   info.setText(
                           "使用说明\n\n" +
-                          "• 点击输入框：输入文字\n\n" +
-                          "• 按住顶部“⇕ 移动”按钮2秒后，再拖动：移动整个悬浮框\n\n" +
-                          "• 拖动右下角 ↘：自由改变输入框宽度和高度\n\n" +
+                          "• 点击输入框：直接输入文字\n\n" +
+                          "• 按住顶部“⇕ 移动”并拖动：立即移动整个悬浮框\n\n" +
+                          "• 拖动右下角 ↘：自由改变宽度和高度\n\n" +
                           "• − / +：调节透明度\n\n" +
-                          "• 透明度共6档：90%、70%、50%、40%、30%、20%\n\n" +
-                          "• 顶部关闭：关闭悬浮输入框\n\n" +
+                          "• 透明度：90%、70%、50%、40%、30%、20%\n\n" +
+                          "• 顶部关闭：关闭悬浮窗并退出整个程序\n\n" +
                           "• 顶部设置：打开此设置页面"
                   );
 
                   info.setTextSize(17);
-
-                  info.setTextColor(
-                          Color.DKGRAY
-                  );
-
-                  info.setLineSpacing(
-                          0,
-                          1.2f
-                  );
+                  info.setTextColor(Color.DKGRAY);
+                  info.setLineSpacing(0, 1.2f);
 
                   root.addView(
                           info,
@@ -360,25 +294,19 @@ jobs:
                           )
                   );
 
-                  Button permission =
-                          new Button(this);
-
-                  permission.setText(
-                          "悬浮窗权限设置"
-                  );
-
+                  Button permission = new Button(this);
+                  permission.setText("悬浮窗权限设置");
                   permission.setAllCaps(false);
 
                   permission.setOnClickListener(v -> {
 
-                      Intent intent =
-                              new Intent(
-                                      Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                      Uri.parse(
-                                              "package:" +
-                                              getPackageName()
-                                      )
-                              );
+                      Intent intent = new Intent(
+                              Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                              Uri.parse(
+                                      "package:" +
+                                      getPackageName()
+                              )
+                      );
 
                       startActivity(intent);
                   });
@@ -389,21 +317,15 @@ jobs:
                                   dp(58)
                           );
 
-                  buttonLp.bottomMargin =
-                          dp(12);
+                  buttonLp.bottomMargin = dp(12);
 
                   root.addView(
                           permission,
                           buttonLp
                   );
 
-                  Button reset =
-                          new Button(this);
-
-                  reset.setText(
-                          "恢复默认位置、大小和透明度"
-                  );
-
+                  Button reset = new Button(this);
+                  reset.setText("恢复默认位置、大小和透明度");
                   reset.setAllCaps(false);
 
                   reset.setOnClickListener(v -> {
@@ -418,7 +340,7 @@ jobs:
 
                       Toast.makeText(
                               this,
-                              "已恢复默认设置，请重新打开悬浮输入框",
+                              "已恢复默认设置",
                               Toast.LENGTH_SHORT
                       ).show();
 
@@ -438,21 +360,15 @@ jobs:
                                   dp(58)
                           );
 
-                  resetLp.bottomMargin =
-                          dp(12);
+                  resetLp.bottomMargin = dp(12);
 
                   root.addView(
                           reset,
                           resetLp
                   );
 
-                  Button back =
-                          new Button(this);
-
-                  back.setText(
-                          "返回悬浮输入框"
-                  );
-
+                  Button back = new Button(this);
+                  back.setText("返回悬浮输入框");
                   back.setAllCaps(false);
 
                   back.setOnClickListener(v ->
@@ -475,6 +391,7 @@ jobs:
           cat > app/src/main/java/com/jiexin/floatinginput/FloatingService.java <<'EOF'
           package com.jiexin.floatinginput;
 
+          import android.app.ActivityManager;
           import android.app.Notification;
           import android.app.NotificationChannel;
           import android.app.NotificationManager;
@@ -490,9 +407,7 @@ jobs:
           import android.graphics.drawable.GradientDrawable;
 
           import android.os.Build;
-          import android.os.Handler;
           import android.os.IBinder;
-          import android.os.Looper;
 
           import android.view.Gravity;
           import android.view.MotionEvent;
@@ -504,36 +419,23 @@ jobs:
           import android.widget.FrameLayout;
           import android.widget.LinearLayout;
           import android.widget.TextView;
-          import android.widget.Toast;
 
           public class FloatingService extends Service {
 
               private static final String CHANNEL_ID =
-                      "floating_input_channel_v3";
+                      "floating_input_channel_v4";
 
               private static final int NOTIFICATION_ID =
-                      1003;
+                      1004;
 
               private WindowManager windowManager;
-
               private LinearLayout rootView;
-
               private EditText inputBox;
-
               private TextView alphaText;
-
               private TextView resizeHandle;
-
               private TextView moveHandle;
-
               private WindowManager.LayoutParams params;
-
               private SharedPreferences prefs;
-
-              private Handler handler =
-                      new Handler(
-                              Looper.getMainLooper()
-                      );
 
               private final float[] alphaLevels = {
                       0.90f,
@@ -557,21 +459,11 @@ jobs:
 
               private float moveDownRawX;
               private float moveDownRawY;
-
               private int moveStartX;
               private int moveStartY;
 
-              private boolean moveUnlocked =
-                      false;
-
-              private boolean moveFingerDown =
-                      false;
-
-              private Runnable unlockMoveRunnable;
-
               private float resizeRawX;
               private float resizeRawY;
-
               private int startWidth;
               private int startHeight;
 
@@ -590,11 +482,10 @@ jobs:
 
                   super.onCreate();
 
-                  prefs =
-                          getSharedPreferences(
-                                  "floating_settings",
-                                  MODE_PRIVATE
-                          );
+                  prefs = getSharedPreferences(
+                          "floating_settings",
+                          MODE_PRIVATE
+                  );
 
                   createNotificationChannel();
 
@@ -619,10 +510,6 @@ jobs:
                       int startId
               ) {
 
-                  if (rootView == null) {
-                      createFloatingWindow();
-                  }
-
                   return START_STICKY;
               }
 
@@ -635,8 +522,7 @@ jobs:
                               new NotificationChannel(
                                       CHANNEL_ID,
                                       "悬浮输入框",
-                                      NotificationManager
-                                              .IMPORTANCE_LOW
+                                      NotificationManager.IMPORTANCE_LOW
                               );
 
                       channel.setDescription(
@@ -700,8 +586,7 @@ jobs:
                                   "点击打开设置"
                           )
                           .setSmallIcon(
-                                  android.R.drawable
-                                          .ic_menu_edit
+                                  android.R.drawable.ic_menu_edit
                           )
                           .setContentIntent(
                                   pendingIntent
@@ -744,19 +629,11 @@ jobs:
                           new TextView(this);
 
                   button.setText(text);
-
                   button.setTextSize(15);
-
-                  button.setGravity(
-                          Gravity.CENTER
-                  );
+                  button.setGravity(Gravity.CENTER);
 
                   button.setTextColor(
-                          Color.rgb(
-                                  35,
-                                  35,
-                                  35
-                          )
+                          Color.rgb(35, 35, 35)
                   );
 
                   button.setBackground(
@@ -822,28 +699,22 @@ jobs:
                   );
 
                   TextView closeButton =
-                          createTopButton(
-                                  "关闭"
-                          );
+                          createTopButton("关闭");
 
                   TextView settingsButton =
-                          createTopButton(
-                                  "设置"
-                          );
+                          createTopButton("设置");
 
                   moveHandle =
-                          createTopButton(
-                                  "⇕ 移动"
-                          );
+                          createTopButton("⇕ 移动");
 
-                  LinearLayout.LayoutParams topButtonLp =
+                  LinearLayout.LayoutParams closeLp =
                           new LinearLayout.LayoutParams(
                                   0,
                                   dp(42),
                                   1f
                           );
 
-                  topButtonLp.setMargins(
+                  closeLp.setMargins(
                           dp(2),
                           dp(2),
                           dp(2),
@@ -852,7 +723,7 @@ jobs:
 
                   topBar.addView(
                           closeButton,
-                          topButtonLp
+                          closeLp
                   );
 
                   LinearLayout.LayoutParams settingsLp =
@@ -896,8 +767,7 @@ jobs:
                   rootView.addView(
                           topBar,
                           new LinearLayout.LayoutParams(
-                                  ViewGroup.LayoutParams
-                                          .MATCH_PARENT,
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
                                   dp(48)
                           )
                   );
@@ -928,7 +798,6 @@ jobs:
                   );
 
                   inputBox.setSingleLine(false);
-
                   inputBox.setMinLines(2);
 
                   inputBox.setPadding(
@@ -949,27 +818,17 @@ jobs:
                   inputFrame.addView(
                           inputBox,
                           new FrameLayout.LayoutParams(
-                                  ViewGroup.LayoutParams
-                                          .MATCH_PARENT,
-                                  ViewGroup.LayoutParams
-                                          .MATCH_PARENT
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  ViewGroup.LayoutParams.MATCH_PARENT
                           )
                   );
 
                   resizeHandle =
                           new TextView(this);
 
-                  resizeHandle.setText(
-                          "↘"
-                  );
-
-                  resizeHandle.setTextSize(
-                          28
-                  );
-
-                  resizeHandle.setGravity(
-                          Gravity.CENTER
-                  );
+                  resizeHandle.setText("↘");
+                  resizeHandle.setTextSize(28);
+                  resizeHandle.setGravity(Gravity.CENTER);
 
                   resizeHandle.setTextColor(
                           Color.rgb(
@@ -1008,8 +867,7 @@ jobs:
                   rootView.addView(
                           inputFrame,
                           new LinearLayout.LayoutParams(
-                                  ViewGroup.LayoutParams
-                                          .MATCH_PARENT,
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
                                   0,
                                   1f
                           )
@@ -1037,33 +895,17 @@ jobs:
                           new Button(this);
 
                   minus.setText("−");
-
                   minus.setTextSize(23);
-
                   minus.setAllCaps(false);
-
-                  minus.setPadding(
-                          0,
-                          0,
-                          0,
-                          0
-                  );
+                  minus.setPadding(0, 0, 0, 0);
 
                   Button plus =
                           new Button(this);
 
                   plus.setText("+");
-
                   plus.setTextSize(23);
-
                   plus.setAllCaps(false);
-
-                  plus.setPadding(
-                          0,
-                          0,
-                          0,
-                          0
-                  );
+                  plus.setPadding(0, 0, 0, 0);
 
                   alphaText =
                           new TextView(this);
@@ -1088,7 +930,6 @@ jobs:
                           alphaIndex++;
 
                           updateAlpha();
-
                           saveSettings();
                       }
                   });
@@ -1100,7 +941,6 @@ jobs:
                           alphaIndex--;
 
                           updateAlpha();
-
                           saveSettings();
                       }
                   });
@@ -1133,29 +973,24 @@ jobs:
                   rootView.addView(
                           controls,
                           new LinearLayout.LayoutParams(
-                                  ViewGroup.LayoutParams
-                                          .MATCH_PARENT,
+                                  ViewGroup.LayoutParams.MATCH_PARENT,
                                   dp(55)
                           )
                   );
 
                   int type;
 
-                  if (
-                      Build.VERSION.SDK_INT >=
-                      Build.VERSION_CODES.O
-                  ) {
+                  if (Build.VERSION.SDK_INT >=
+                          Build.VERSION_CODES.O) {
 
                       type =
-                              WindowManager
-                                      .LayoutParams
+                              WindowManager.LayoutParams
                                       .TYPE_APPLICATION_OVERLAY;
 
                   } else {
 
                       type =
-                              WindowManager
-                                      .LayoutParams
+                              WindowManager.LayoutParams
                                       .TYPE_PHONE;
                   }
 
@@ -1191,10 +1026,8 @@ jobs:
                                   width,
                                   height,
                                   type,
-                                  WindowManager.LayoutParams
-                                          .FLAG_NOT_TOUCH_MODAL |
-                                  WindowManager.LayoutParams
-                                          .FLAG_LAYOUT_IN_SCREEN,
+                                  WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
+                                  WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                                   PixelFormat.TRANSLUCENT
                           );
 
@@ -1228,9 +1061,7 @@ jobs:
                   } catch (Exception e) {
 
                       rootView = null;
-
                       stopSelf();
-
                       return;
                   }
 
@@ -1245,7 +1076,6 @@ jobs:
                   );
 
                   setupMoveHandle();
-
                   setupResize();
               }
 
@@ -1254,6 +1084,37 @@ jobs:
               ) {
 
                   closeButton.setOnClickListener(v -> {
+
+                      saveSettings();
+
+                      /*
+                       * 关闭整个程序：
+                       * 1. 移除悬浮窗
+                       * 2. 停止前台服务
+                       * 3. 移除 APP 任务
+                       */
+
+                      try {
+
+                          ActivityManager activityManager =
+                                  (ActivityManager)
+                                  getSystemService(
+                                          Context.ACTIVITY_SERVICE
+                                  );
+
+                          if (activityManager != null) {
+
+                              for (
+                                  ActivityManager.AppTask task :
+                                  activityManager.getAppTasks()
+                              ) {
+
+                                  task.finishAndRemoveTask();
+                              }
+                          }
+
+                      } catch (Exception ignored) {
+                      }
 
                       stopSelf();
                   });
@@ -1272,33 +1133,21 @@ jobs:
                               );
 
                       intent.addFlags(
-                              Intent.FLAG_ACTIVITY_NEW_TASK
+                              Intent.FLAG_ACTIVITY_NEW_TASK |
+                              Intent.FLAG_ACTIVITY_CLEAR_TOP
                       );
 
                       startActivity(intent);
                   });
               }
 
+              /*
+               * V4：
+               * 不需要再长按2秒。
+               * 手指按住“移动”按钮后，
+               * 直接拖动即可移动整个悬浮框。
+               */
               private void setupMoveHandle() {
-
-                  unlockMoveRunnable =
-                          () -> {
-
-                              if (moveFingerDown) {
-
-                                  moveUnlocked = true;
-
-                                  moveHandle.setText(
-                                          "⇕ 可移动"
-                                  );
-
-                                  Toast.makeText(
-                                          this,
-                                          "现在可以拖动位置",
-                                          Toast.LENGTH_SHORT
-                                  ).show();
-                              }
-                          };
 
                   moveHandle.setOnTouchListener(
                           (view, event) -> {
@@ -1308,12 +1157,6 @@ jobs:
                       ) {
 
                           case MotionEvent.ACTION_DOWN:
-
-                              moveFingerDown =
-                                      true;
-
-                              moveUnlocked =
-                                      false;
 
                               moveDownRawX =
                                       event.getRawX();
@@ -1328,83 +1171,48 @@ jobs:
                                       params.y;
 
                               moveHandle.setText(
-                                      "按住2秒…"
-                              );
-
-                              handler.removeCallbacks(
-                                      unlockMoveRunnable
-                              );
-
-                              handler.postDelayed(
-                                      unlockMoveRunnable,
-                                      2000
+                                      "⇕ 移动中"
                               );
 
                               return true;
 
                           case MotionEvent.ACTION_MOVE:
 
-                              if (moveUnlocked) {
+                              float dx =
+                                      event.getRawX() -
+                                      moveDownRawX;
 
-                                  float dx =
-                                          event.getRawX() -
-                                          moveDownRawX;
+                              float dy =
+                                      event.getRawY() -
+                                      moveDownRawY;
 
-                                  float dy =
-                                          event.getRawY() -
-                                          moveDownRawY;
+                              params.x =
+                                      moveStartX +
+                                      (int) dx;
 
-                                  params.x =
-                                          moveStartX +
-                                          (int) dx;
+                              params.y =
+                                      moveStartY +
+                                      (int) dy;
 
-                                  params.y =
-                                          moveStartY +
-                                          (int) dy;
+                              try {
 
-                                  windowManager
-                                          .updateViewLayout(
-                                                  rootView,
-                                                  params
-                                          );
+                                  windowManager.updateViewLayout(
+                                          rootView,
+                                          params
+                                  );
+
+                              } catch (
+                                      Exception ignored
+                              ) {
                               }
 
                               return true;
 
                           case MotionEvent.ACTION_UP:
 
-                              moveFingerDown =
-                                      false;
-
-                              handler.removeCallbacks(
-                                      unlockMoveRunnable
-                              );
-
-                              if (moveUnlocked) {
-
-                                  saveSettings();
-                              }
-
-                              moveUnlocked =
-                                      false;
-
-                              moveHandle.setText(
-                                      "⇕ 移动"
-                              );
-
-                              return true;
-
                           case MotionEvent.ACTION_CANCEL:
 
-                              moveFingerDown =
-                                      false;
-
-                              moveUnlocked =
-                                      false;
-
-                              handler.removeCallbacks(
-                                      unlockMoveRunnable
-                              );
+                              saveSettings();
 
                               moveHandle.setText(
                                       "⇕ 移动"
@@ -1496,11 +1304,17 @@ jobs:
                               params.height =
                                       newHeight;
 
-                              windowManager
-                                      .updateViewLayout(
-                                              rootView,
-                                              params
-                                      );
+                              try {
+
+                                  windowManager.updateViewLayout(
+                                          rootView,
+                                          params
+                                  );
+
+                              } catch (
+                                      Exception ignored
+                              ) {
+                              }
 
                               return true;
 
@@ -1509,7 +1323,6 @@ jobs:
                           case MotionEvent.ACTION_CANCEL:
 
                               saveSettings();
-
                               return true;
                       }
 
@@ -1568,10 +1381,6 @@ jobs:
 
               @Override
               public void onDestroy() {
-
-                  handler.removeCallbacksAndMessages(
-                          null
-                  );
 
                   saveSettings();
 
@@ -1637,11 +1446,11 @@ jobs:
       - name: Prepare APK
         shell: bash
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V3.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V4.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V3-APK
-          path: FloatingInputApp-V3.apk
+          name: FloatingInputApp-V4-APK
+          path: FloatingInputApp-V4.apk
           retention-days: 30
