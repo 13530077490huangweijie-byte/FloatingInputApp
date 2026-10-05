@@ -1,4 +1,4 @@
-name: Build Floating Input APK V4
+name: Build Floating Input APK V5
 
 on:
   workflow_dispatch:
@@ -72,8 +72,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 4
-                  versionName "4.0"
+                  versionCode 5
+                  versionName "5.0"
               }
           }
           EOF
@@ -241,7 +241,11 @@ jobs:
                   super.onCreate(savedInstanceState);
 
                   LinearLayout root = new LinearLayout(this);
-                  root.setOrientation(LinearLayout.VERTICAL);
+
+                  root.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
                   root.setPadding(
                           dp(22),
                           dp(35),
@@ -254,11 +258,14 @@ jobs:
                   );
 
                   TextView title = new TextView(this);
+
                   title.setText("悬浮输入框设置");
                   title.setTextSize(27);
+
                   title.setTextColor(
                           Color.rgb(25, 35, 50)
                   );
+
                   title.setPadding(
                           0,
                           0,
@@ -271,14 +278,15 @@ jobs:
                   TextView info = new TextView(this);
 
                   info.setText(
-                          "使用说明\n\n" +
-                          "• 点击输入框：直接输入文字\n\n" +
-                          "• 按住顶部“⇕ 移动”并拖动：立即移动整个悬浮框\n\n" +
-                          "• 拖动右下角 ↘：自由改变宽度和高度\n\n" +
-                          "• − / +：调节透明度\n\n" +
+                          "V5 使用说明\n\n" +
+                          "• 点击输入框：输入文字\n\n" +
+                          "• 输入完成后按输入法回车/搜索键：直接浏览器搜索\n\n" +
+                          "• 单击右下角 ↘：在光标位置换行\n\n" +
+                          "• 拖动右下角 ↘：调整输入框大小\n\n" +
+                          "• 拖动顶部“⇕ 移动”：移动整个悬浮框\n\n" +
+                          "• − / +：调整透明度\n\n" +
                           "• 透明度：90%、70%、50%、40%、30%、20%\n\n" +
-                          "• 顶部关闭：关闭悬浮窗并退出整个程序\n\n" +
-                          "• 顶部设置：打开此设置页面"
+                          "• 关闭：关闭悬浮窗并退出程序"
                   );
 
                   info.setTextSize(17);
@@ -295,7 +303,11 @@ jobs:
                   );
 
                   Button permission = new Button(this);
-                  permission.setText("悬浮窗权限设置");
+
+                  permission.setText(
+                          "悬浮窗权限设置"
+                  );
+
                   permission.setAllCaps(false);
 
                   permission.setOnClickListener(v -> {
@@ -325,7 +337,11 @@ jobs:
                   );
 
                   Button reset = new Button(this);
-                  reset.setText("恢复默认位置、大小和透明度");
+
+                  reset.setText(
+                          "恢复默认位置、大小和透明度"
+                  );
+
                   reset.setAllCaps(false);
 
                   reset.setOnClickListener(v -> {
@@ -368,7 +384,11 @@ jobs:
                   );
 
                   Button back = new Button(this);
-                  back.setText("返回悬浮输入框");
+
+                  back.setText(
+                          "返回悬浮输入框"
+                  );
+
                   back.setAllCaps(false);
 
                   back.setOnClickListener(v ->
@@ -406,35 +426,52 @@ jobs:
           import android.graphics.PixelFormat;
           import android.graphics.drawable.GradientDrawable;
 
+          import android.net.Uri;
+
           import android.os.Build;
           import android.os.IBinder;
 
+          import android.text.Editable;
+
           import android.view.Gravity;
+          import android.view.KeyEvent;
           import android.view.MotionEvent;
           import android.view.ViewGroup;
           import android.view.WindowManager;
+
+          import android.view.inputmethod.EditorInfo;
 
           import android.widget.Button;
           import android.widget.EditText;
           import android.widget.FrameLayout;
           import android.widget.LinearLayout;
           import android.widget.TextView;
+          import android.widget.Toast;
+
+          import java.net.URLEncoder;
 
           public class FloatingService extends Service {
 
               private static final String CHANNEL_ID =
-                      "floating_input_channel_v4";
+                      "floating_input_channel_v5";
 
               private static final int NOTIFICATION_ID =
-                      1004;
+                      1005;
 
               private WindowManager windowManager;
+
               private LinearLayout rootView;
+
               private EditText inputBox;
+
               private TextView alphaText;
+
               private TextView resizeHandle;
+
               private TextView moveHandle;
+
               private WindowManager.LayoutParams params;
+
               private SharedPreferences prefs;
 
               private final float[] alphaLevels = {
@@ -459,13 +496,19 @@ jobs:
 
               private float moveDownRawX;
               private float moveDownRawY;
+
               private int moveStartX;
               private int moveStartY;
 
               private float resizeRawX;
               private float resizeRawY;
+
               private int startWidth;
               private int startHeight;
+
+              private boolean resizeMoved = false;
+
+              private static final int TAP_DISTANCE = 12;
 
               private int dp(int value) {
 
@@ -482,10 +525,11 @@ jobs:
 
                   super.onCreate();
 
-                  prefs = getSharedPreferences(
-                          "floating_settings",
-                          MODE_PRIVATE
-                  );
+                  prefs =
+                          getSharedPreferences(
+                                  "floating_settings",
+                                  MODE_PRIVATE
+                          );
 
                   createNotificationChannel();
 
@@ -522,7 +566,8 @@ jobs:
                               new NotificationChannel(
                                       CHANNEL_ID,
                                       "悬浮输入框",
-                                      NotificationManager.IMPORTANCE_LOW
+                                      NotificationManager
+                                              .IMPORTANCE_LOW
                               );
 
                       channel.setDescription(
@@ -586,7 +631,8 @@ jobs:
                                   "点击打开设置"
                           )
                           .setSmallIcon(
-                                  android.R.drawable.ic_menu_edit
+                                  android.R.drawable
+                                          .ic_menu_edit
                           )
                           .setContentIntent(
                                   pendingIntent
@@ -629,11 +675,19 @@ jobs:
                           new TextView(this);
 
                   button.setText(text);
+
                   button.setTextSize(15);
-                  button.setGravity(Gravity.CENTER);
+
+                  button.setGravity(
+                          Gravity.CENTER
+                  );
 
                   button.setTextColor(
-                          Color.rgb(35, 35, 35)
+                          Color.rgb(
+                                  35,
+                                  35,
+                                  35
+                          )
                   );
 
                   button.setBackground(
@@ -699,13 +753,19 @@ jobs:
                   );
 
                   TextView closeButton =
-                          createTopButton("关闭");
+                          createTopButton(
+                                  "关闭"
+                          );
 
                   TextView settingsButton =
-                          createTopButton("设置");
+                          createTopButton(
+                                  "设置"
+                          );
 
                   moveHandle =
-                          createTopButton("⇕ 移动");
+                          createTopButton(
+                                  "⇕ 移动"
+                          );
 
                   LinearLayout.LayoutParams closeLp =
                           new LinearLayout.LayoutParams(
@@ -767,7 +827,8 @@ jobs:
                   rootView.addView(
                           topBar,
                           new LinearLayout.LayoutParams(
-                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  ViewGroup.LayoutParams
+                                          .MATCH_PARENT,
                                   dp(48)
                           )
                   );
@@ -779,7 +840,7 @@ jobs:
                           new EditText(this);
 
                   inputBox.setHint(
-                          "点击这里输入文字"
+                          "输入文字，按回车直接搜索"
                   );
 
                   inputBox.setTextSize(18);
@@ -797,8 +858,31 @@ jobs:
                           Color.GRAY
                   );
 
+                  /*
+                   * 保留多行显示，
+                   * 但是输入法回车作为“搜索”。
+                   *
+                   * 如果需要真正换行，
+                   * 单击右下角 ↘。
+                   */
                   inputBox.setSingleLine(false);
+
+                  inputBox.setMaxLines(20);
+
                   inputBox.setMinLines(2);
+
+                  inputBox.setHorizontallyScrolling(
+                          false
+                  );
+
+                  inputBox.setImeOptions(
+                          EditorInfo.IME_ACTION_SEARCH
+                  );
+
+                  inputBox.setRawInputType(
+                          android.text.InputType.TYPE_CLASS_TEXT |
+                          android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                  );
 
                   inputBox.setPadding(
                           dp(12),
@@ -815,20 +899,58 @@ jobs:
                           )
                   );
 
+                  /*
+                   * 输入法右下角搜索/回车按键：
+                   * 搜索输入框全部文字。
+                   */
+                  inputBox.setOnEditorActionListener(
+                          (v, actionId, event) -> {
+
+                      boolean searchAction =
+                              actionId ==
+                              EditorInfo.IME_ACTION_SEARCH;
+
+                      boolean enterKey =
+                              event != null &&
+                              event.getKeyCode() ==
+                              KeyEvent.KEYCODE_ENTER &&
+                              event.getAction() ==
+                              KeyEvent.ACTION_DOWN;
+
+                      if (searchAction || enterKey) {
+
+                          searchCurrentText();
+
+                          return true;
+                      }
+
+                      return false;
+                  });
+
                   inputFrame.addView(
                           inputBox,
                           new FrameLayout.LayoutParams(
-                                  ViewGroup.LayoutParams.MATCH_PARENT,
-                                  ViewGroup.LayoutParams.MATCH_PARENT
+                                  ViewGroup.LayoutParams
+                                          .MATCH_PARENT,
+                                  ViewGroup.LayoutParams
+                                          .MATCH_PARENT
                           )
                   );
 
                   resizeHandle =
                           new TextView(this);
 
-                  resizeHandle.setText("↘");
-                  resizeHandle.setTextSize(28);
-                  resizeHandle.setGravity(Gravity.CENTER);
+                  resizeHandle.setText(
+                          "↘"
+                  );
+
+                  resizeHandle.setTextSize(
+                          28
+                  );
+
+                  resizeHandle.setGravity(
+                          Gravity.CENTER
+                  );
 
                   resizeHandle.setTextColor(
                           Color.rgb(
@@ -867,7 +989,8 @@ jobs:
                   rootView.addView(
                           inputFrame,
                           new LinearLayout.LayoutParams(
-                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  ViewGroup.LayoutParams
+                                          .MATCH_PARENT,
                                   0,
                                   1f
                           )
@@ -895,17 +1018,33 @@ jobs:
                           new Button(this);
 
                   minus.setText("−");
+
                   minus.setTextSize(23);
+
                   minus.setAllCaps(false);
-                  minus.setPadding(0, 0, 0, 0);
+
+                  minus.setPadding(
+                          0,
+                          0,
+                          0,
+                          0
+                  );
 
                   Button plus =
                           new Button(this);
 
                   plus.setText("+");
+
                   plus.setTextSize(23);
+
                   plus.setAllCaps(false);
-                  plus.setPadding(0, 0, 0, 0);
+
+                  plus.setPadding(
+                          0,
+                          0,
+                          0,
+                          0
+                  );
 
                   alphaText =
                           new TextView(this);
@@ -930,6 +1069,7 @@ jobs:
                           alphaIndex++;
 
                           updateAlpha();
+
                           saveSettings();
                       }
                   });
@@ -941,6 +1081,7 @@ jobs:
                           alphaIndex--;
 
                           updateAlpha();
+
                           saveSettings();
                       }
                   });
@@ -973,24 +1114,29 @@ jobs:
                   rootView.addView(
                           controls,
                           new LinearLayout.LayoutParams(
-                                  ViewGroup.LayoutParams.MATCH_PARENT,
+                                  ViewGroup.LayoutParams
+                                          .MATCH_PARENT,
                                   dp(55)
                           )
                   );
 
                   int type;
 
-                  if (Build.VERSION.SDK_INT >=
-                          Build.VERSION_CODES.O) {
+                  if (
+                      Build.VERSION.SDK_INT >=
+                      Build.VERSION_CODES.O
+                  ) {
 
                       type =
-                              WindowManager.LayoutParams
+                              WindowManager
+                                      .LayoutParams
                                       .TYPE_APPLICATION_OVERLAY;
 
                   } else {
 
                       type =
-                              WindowManager.LayoutParams
+                              WindowManager
+                                      .LayoutParams
                                       .TYPE_PHONE;
                   }
 
@@ -1026,8 +1172,15 @@ jobs:
                                   width,
                                   height,
                                   type,
-                                  WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
-                                  WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+
+                                  WindowManager
+                                          .LayoutParams
+                                          .FLAG_NOT_TOUCH_MODAL |
+
+                                  WindowManager
+                                          .LayoutParams
+                                          .FLAG_LAYOUT_IN_SCREEN,
+
                                   PixelFormat.TRANSLUCENT
                           );
 
@@ -1048,7 +1201,8 @@ jobs:
                           );
 
                   params.softInputMode =
-                          WindowManager.LayoutParams
+                          WindowManager
+                                  .LayoutParams
                                   .SOFT_INPUT_ADJUST_RESIZE;
 
                   try {
@@ -1061,7 +1215,9 @@ jobs:
                   } catch (Exception e) {
 
                       rootView = null;
+
                       stopSelf();
+
                       return;
                   }
 
@@ -1076,7 +1232,134 @@ jobs:
                   );
 
                   setupMoveHandle();
-                  setupResize();
+
+                  setupResizeAndNewLine();
+              }
+
+              /*
+               * 搜索输入框中的全部文字。
+               */
+              private void searchCurrentText() {
+
+                  String text =
+                          inputBox
+                                  .getText()
+                                  .toString()
+                                  .trim();
+
+                  if (text.isEmpty()) {
+
+                      Toast.makeText(
+                              this,
+                              "请先输入搜索内容",
+                              Toast.LENGTH_SHORT
+                      ).show();
+
+                      return;
+                  }
+
+                  try {
+
+                      String encoded =
+                              URLEncoder.encode(
+                                      text,
+                                      "UTF-8"
+                              );
+
+                      /*
+                       * 使用标准浏览器 VIEW Intent。
+                       * 默认使用 Google 搜索地址。
+                       */
+                      Uri uri =
+                              Uri.parse(
+                                      "https://www.google.com/search?q=" +
+                                      encoded
+                              );
+
+                      Intent browserIntent =
+                              new Intent(
+                                      Intent.ACTION_VIEW,
+                                      uri
+                              );
+
+                      browserIntent.addFlags(
+                              Intent.FLAG_ACTIVITY_NEW_TASK
+                      );
+
+                      startActivity(
+                              browserIntent
+                      );
+
+                  } catch (Exception e) {
+
+                      Toast.makeText(
+                              this,
+                              "无法打开浏览器",
+                              Toast.LENGTH_SHORT
+                      ).show();
+                  }
+              }
+
+              /*
+               * 单击右下角 ↘：
+               * 在当前光标位置插入换行。
+               */
+              private void insertNewLine() {
+
+                  Editable editable =
+                          inputBox.getText();
+
+                  int start =
+                          inputBox
+                                  .getSelectionStart();
+
+                  int end =
+                          inputBox
+                                  .getSelectionEnd();
+
+                  if (start < 0) {
+
+                      start =
+                              editable.length();
+                  }
+
+                  if (end < 0) {
+
+                      end = start;
+                  }
+
+                  int min =
+                          Math.min(
+                                  start,
+                                  end
+                          );
+
+                  int max =
+                          Math.max(
+                                  start,
+                                  end
+                          );
+
+                  editable.replace(
+                          min,
+                          max,
+                          "\n"
+                  );
+
+                  int newPosition =
+                          min + 1;
+
+                  if (
+                      newPosition <=
+                      editable.length()
+                  ) {
+
+                      inputBox.setSelection(
+                              newPosition
+                      );
+                  }
+
+                  inputBox.requestFocus();
               }
 
               private void setupCloseButton(
@@ -1087,33 +1370,29 @@ jobs:
 
                       saveSettings();
 
-                      /*
-                       * 关闭整个程序：
-                       * 1. 移除悬浮窗
-                       * 2. 停止前台服务
-                       * 3. 移除 APP 任务
-                       */
-
                       try {
 
-                          ActivityManager activityManager =
+                          ActivityManager manager =
                                   (ActivityManager)
                                   getSystemService(
-                                          Context.ACTIVITY_SERVICE
+                                          Context
+                                                  .ACTIVITY_SERVICE
                                   );
 
-                          if (activityManager != null) {
+                          if (manager != null) {
 
                               for (
                                   ActivityManager.AppTask task :
-                                  activityManager.getAppTasks()
+                                  manager.getAppTasks()
                               ) {
 
                                   task.finishAndRemoveTask();
                               }
                           }
 
-                      } catch (Exception ignored) {
+                      } catch (
+                              Exception ignored
+                      ) {
                       }
 
                       stopSelf();
@@ -1142,10 +1421,8 @@ jobs:
               }
 
               /*
-               * V4：
-               * 不需要再长按2秒。
-               * 手指按住“移动”按钮后，
-               * 直接拖动即可移动整个悬浮框。
+               * 移动按钮：
+               * 按住直接拖动。
                */
               private void setupMoveHandle() {
 
@@ -1196,10 +1473,11 @@ jobs:
 
                               try {
 
-                                  windowManager.updateViewLayout(
-                                          rootView,
-                                          params
-                                  );
+                                  windowManager
+                                          .updateViewLayout(
+                                                  rootView,
+                                                  params
+                                          );
 
                               } catch (
                                       Exception ignored
@@ -1225,7 +1503,13 @@ jobs:
                   });
               }
 
-              private void setupResize() {
+              /*
+               * ↘ 两种功能：
+               *
+               * 1. 拖动 = 调整大小
+               * 2. 单击 = 输入框换行
+               */
+              private void setupResizeAndNewLine() {
 
                   resizeHandle.setOnTouchListener(
                           (view, event) -> {
@@ -1248,6 +1532,9 @@ jobs:
                               startHeight =
                                       params.height;
 
+                              resizeMoved =
+                                      false;
+
                               return true;
 
                           case MotionEvent.ACTION_MOVE:
@@ -1264,65 +1551,105 @@ jobs:
                                           resizeRawY
                                       );
 
-                              int screenWidth =
-                                      getResources()
-                                              .getDisplayMetrics()
-                                              .widthPixels;
-
-                              int screenHeight =
-                                      getResources()
-                                              .getDisplayMetrics()
-                                              .heightPixels;
-
-                              int newWidth =
-                                      startWidth + dx;
-
-                              int newHeight =
-                                      startHeight + dy;
-
-                              newWidth =
-                                      Math.max(
-                                              dp(230),
-                                              Math.min(
-                                                      newWidth,
-                                                      screenWidth
-                                              )
-                                      );
-
-                              newHeight =
-                                      Math.max(
-                                              dp(210),
-                                              Math.min(
-                                                      newHeight,
-                                                      screenHeight
-                                              )
-                                      );
-
-                              params.width =
-                                      newWidth;
-
-                              params.height =
-                                      newHeight;
-
-                              try {
-
-                                  windowManager.updateViewLayout(
-                                          rootView,
-                                          params
-                                  );
-
-                              } catch (
-                                      Exception ignored
+                              /*
+                               * 手指移动超过一定距离，
+                               * 才判断为“拖动调整大小”。
+                               */
+                              if (
+                                  Math.abs(dx) >
+                                  dp(TAP_DISTANCE) ||
+                                  Math.abs(dy) >
+                                  dp(TAP_DISTANCE)
                               ) {
+
+                                  resizeMoved =
+                                          true;
+                              }
+
+                              if (resizeMoved) {
+
+                                  int screenWidth =
+                                          getResources()
+                                                  .getDisplayMetrics()
+                                                  .widthPixels;
+
+                                  int screenHeight =
+                                          getResources()
+                                                  .getDisplayMetrics()
+                                                  .heightPixels;
+
+                                  int newWidth =
+                                          startWidth +
+                                          dx;
+
+                                  int newHeight =
+                                          startHeight +
+                                          dy;
+
+                                  newWidth =
+                                          Math.max(
+                                                  dp(230),
+                                                  Math.min(
+                                                          newWidth,
+                                                          screenWidth
+                                                  )
+                                          );
+
+                                  newHeight =
+                                          Math.max(
+                                                  dp(210),
+                                                  Math.min(
+                                                          newHeight,
+                                                          screenHeight
+                                                  )
+                                          );
+
+                                  params.width =
+                                          newWidth;
+
+                                  params.height =
+                                          newHeight;
+
+                                  try {
+
+                                      windowManager
+                                              .updateViewLayout(
+                                                      rootView,
+                                                      params
+                                              );
+
+                                  } catch (
+                                          Exception ignored
+                                  ) {
+                                  }
                               }
 
                               return true;
 
                           case MotionEvent.ACTION_UP:
 
+                              if (resizeMoved) {
+
+                                  saveSettings();
+
+                              } else {
+
+                                  /*
+                                   * 没有拖动：
+                                   * 视为单击 ↘，
+                                   * 给输入框换行。
+                                   */
+                                  insertNewLine();
+                              }
+
+                              return true;
+
                           case MotionEvent.ACTION_CANCEL:
 
-                              saveSettings();
+                              if (resizeMoved) {
+                                  saveSettings();
+                              }
+
                               return true;
                       }
 
@@ -1356,26 +1683,32 @@ jobs:
                   }
 
                   prefs.edit()
+
                           .putInt(
                                   "x",
                                   params.x
                           )
+
                           .putInt(
                                   "y",
                                   params.y
                           )
+
                           .putInt(
                                   "width",
                                   params.width
                           )
+
                           .putInt(
                                   "height",
                                   params.height
                           )
+
                           .putInt(
                                   "alpha",
                                   alphaIndex
                           )
+
                           .apply();
               }
 
@@ -1446,11 +1779,11 @@ jobs:
       - name: Prepare APK
         shell: bash
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V4.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V5.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V4-APK
-          path: FloatingInputApp-V4.apk
+          name: FloatingInputApp-V5-APK
+          path: FloatingInputApp-V5.apk
           retention-days: 30
