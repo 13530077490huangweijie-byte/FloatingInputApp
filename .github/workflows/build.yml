@@ -1,4 +1,4 @@
-name: Build Floating Input APK V9
+name: Build Floating Input APK V10
 
 on:
   workflow_dispatch:
@@ -72,8 +72,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 9
-                  versionName "9.0"
+                  versionCode 10
+                  versionName "10.0"
               }
 
               compileOptions {
@@ -131,6 +131,7 @@ jobs:
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
+
                   </activity>
 
                   <activity
@@ -157,6 +158,7 @@ jobs:
                       <property
                           android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                           android:value="User controlled floating text input overlay" />
+
                   </service>
 
               </application>
@@ -408,11 +410,8 @@ jobs:
                   );
 
                   /*
-                   * V9：
-                   * 每次从图标重新打开程序，
-                   * 强制把透明度恢复成第0档 = 90%。
-                   *
-                   * 位置和大小不会清除。
+                   * 每次重新打开APP：
+                   * 透明度恢复90%。
                    */
                   getSharedPreferences(
                           "floating_settings",
@@ -538,7 +537,8 @@ jobs:
 
           public class BackCatcherActivity extends Activity {
 
-              private long firstBackTime = 0;
+              private long firstBackTime =
+                      0;
 
               @Override
               protected void onCreate(
@@ -549,12 +549,9 @@ jobs:
                           savedInstanceState
                   );
 
-                  /*
-                   * 透明 Activity。
-                   * 用户看不到页面，
-                   * 主要负责接收系统返回键。
-                   */
-                  getWindow().setDimAmount(0f);
+                  getWindow().setDimAmount(
+                          0f
+                  );
 
                   getWindow().setSoftInputMode(
                           WindowManager.LayoutParams
@@ -572,7 +569,9 @@ jobs:
                           View.VISIBLE
                   );
 
-                  setContentView(invisible);
+                  setContentView(
+                          invisible
+                  );
               }
 
               @Override
@@ -581,20 +580,14 @@ jobs:
                   long now =
                           System.currentTimeMillis();
 
-                  /*
-                   * 两次返回需要在2秒内完成。
-                   */
                   if (
                       firstBackTime == 0 ||
                       now - firstBackTime > 2000
                   ) {
 
-                      firstBackTime = now;
+                      firstBackTime =
+                              now;
 
-                      /*
-                       * 第一次返回：
-                       * 通知悬浮服务收起输入法。
-                       */
                       Intent intent =
                               new Intent(
                                       this,
@@ -605,15 +598,13 @@ jobs:
                               "FIRST_BACK"
                       );
 
-                      startService(intent);
+                      startService(
+                              intent
+                      );
 
                       return;
                   }
 
-                  /*
-                   * 第二次返回：
-                   * 通知服务彻底关闭悬浮窗程序。
-                   */
                   Intent intent =
                           new Intent(
                                   this,
@@ -624,7 +615,9 @@ jobs:
                           "DOUBLE_BACK_CLOSE"
                   );
 
-                  startService(intent);
+                  startService(
+                          intent
+                  );
 
                   finishAndRemoveTask();
               }
@@ -648,7 +641,9 @@ jobs:
 
           public class SettingsActivity extends Activity {
 
-              private int dp(int value) {
+              private int dp(
+                      int value
+              ) {
 
                   return (int) (
                           value *
@@ -668,7 +663,9 @@ jobs:
                   );
 
                   LinearLayout root =
-                          new LinearLayout(this);
+                          new LinearLayout(
+                                  this
+                          );
 
                   root.setOrientation(
                           LinearLayout.VERTICAL
@@ -690,13 +687,17 @@ jobs:
                   );
 
                   TextView title =
-                          new TextView(this);
+                          new TextView(
+                                  this
+                          );
 
                   title.setText(
                           "悬浮输入框设置"
                   );
 
-                  title.setTextSize(27);
+                  title.setTextSize(
+                          27
+                  );
 
                   title.setTextColor(
                           Color.rgb(
@@ -713,17 +714,22 @@ jobs:
                           dp(18)
                   );
 
-                  root.addView(title);
+                  root.addView(
+                          title
+                  );
 
                   TextView info =
-                          new TextView(this);
+                          new TextView(
+                                  this
+                          );
 
                   info.setText(
-                          "V9 使用说明\n\n" +
+                          "V10 使用说明\n\n" +
+                          "• 搜索引擎：百度搜索\n\n" +
                           "• 每次重新打开程序：透明度自动恢复90%\n\n" +
                           "• 打开程序：自动呼出输入法\n\n" +
                           "• 连续按2次返回键：关闭整个悬浮窗程序\n\n" +
-                          "• 输入法回车/搜索：浏览器搜索并自动关闭程序\n\n" +
+                          "• 输入法回车/搜索：百度搜索并自动关闭程序\n\n" +
                           "• 历史：查看输入和搜索记录\n\n" +
                           "• 长按历史记录：选择删除\n\n" +
                           "• 单击 ↘：换行\n\n" +
@@ -731,7 +737,9 @@ jobs:
                           "• 拖动“移动”：移动悬浮窗"
                   );
 
-                  info.setTextSize(17);
+                  info.setTextSize(
+                          17
+                  );
 
                   info.setTextColor(
                           Color.DKGRAY
@@ -752,15 +760,20 @@ jobs:
                   );
 
                   Button permission =
-                          new Button(this);
+                          new Button(
+                                  this
+                          );
 
                   permission.setText(
                           "悬浮窗权限设置"
                   );
 
-                  permission.setAllCaps(false);
+                  permission.setAllCaps(
+                          false
+                  );
 
-                  permission.setOnClickListener(v -> {
+                  permission.setOnClickListener(
+                          v -> {
 
                       Intent intent =
                               new Intent(
@@ -771,7 +784,9 @@ jobs:
                                       )
                               );
 
-                      startActivity(intent);
+                      startActivity(
+                              intent
+                      );
                   });
 
                   LinearLayout.LayoutParams lp =
@@ -789,15 +804,20 @@ jobs:
                   );
 
                   Button clearHistory =
-                          new Button(this);
+                          new Button(
+                                  this
+                          );
 
                   clearHistory.setText(
                           "清空全部历史记录"
                   );
 
-                  clearHistory.setAllCaps(false);
+                  clearHistory.setAllCaps(
+                          false
+                  );
 
-                  clearHistory.setOnClickListener(v -> {
+                  clearHistory.setOnClickListener(
+                          v -> {
 
                       HistoryManager.clear(
                               this
@@ -825,11 +845,17 @@ jobs:
                   );
 
                   Button back =
-                          new Button(this);
+                          new Button(
+                                  this
+                          );
 
-                  back.setText("返回");
+                  back.setText(
+                          "返回"
+                  );
 
-                  back.setAllCaps(false);
+                  back.setAllCaps(
+                          false
+                  );
 
                   back.setOnClickListener(
                           v -> finish()
@@ -843,7 +869,9 @@ jobs:
                           )
                   );
 
-                  setContentView(root);
+                  setContentView(
+                          root
+                  );
               }
           }
           EOF
@@ -887,7 +915,9 @@ jobs:
               private boolean selectMode =
                       false;
 
-              private int dp(int value) {
+              private int dp(
+                      int value
+              ) {
 
                   return (int) (
                           value *
@@ -920,7 +950,9 @@ jobs:
               private void buildPage() {
 
                   LinearLayout root =
-                          new LinearLayout(this);
+                          new LinearLayout(
+                                  this
+                          );
 
                   root.setOrientation(
                           LinearLayout.VERTICAL
@@ -935,7 +967,9 @@ jobs:
                   );
 
                   LinearLayout top =
-                          new LinearLayout(this);
+                          new LinearLayout(
+                                  this
+                          );
 
                   top.setOrientation(
                           LinearLayout.HORIZONTAL
@@ -953,24 +987,34 @@ jobs:
                   );
 
                   Button back =
-                          new Button(this);
+                          new Button(
+                                  this
+                          );
 
-                  back.setText("返回");
+                  back.setText(
+                          "返回"
+                  );
 
-                  back.setAllCaps(false);
+                  back.setAllCaps(
+                          false
+                  );
 
                   back.setOnClickListener(
                           v -> finish()
                   );
 
                   TextView title =
-                          new TextView(this);
+                          new TextView(
+                                  this
+                          );
 
                   title.setText(
                           "输入 / 搜索历史"
                   );
 
-                  title.setTextSize(22);
+                  title.setTextSize(
+                          22
+                  );
 
                   title.setTextColor(
                           Color.BLACK
@@ -997,10 +1041,14 @@ jobs:
                           )
                   );
 
-                  root.addView(top);
+                  root.addView(
+                          top
+                  );
 
                   LinearLayout actionBar =
-                          new LinearLayout(this);
+                          new LinearLayout(
+                                  this
+                          );
 
                   actionBar.setOrientation(
                           LinearLayout.HORIZONTAL
@@ -1014,7 +1062,9 @@ jobs:
                   );
 
                   Button selectAll =
-                          new Button(this);
+                          new Button(
+                                  this
+                          );
 
                   selectAll.setText(
                           "全选"
@@ -1025,7 +1075,9 @@ jobs:
                   );
 
                   Button deleteSelected =
-                          new Button(this);
+                          new Button(
+                                  this
+                          );
 
                   deleteSelected.setText(
                           "删除所选"
@@ -1036,7 +1088,9 @@ jobs:
                   );
 
                   Button deleteAll =
-                          new Button(this);
+                          new Button(
+                                  this
+                          );
 
                   deleteAll.setText(
                           "全部删除"
@@ -1046,7 +1100,8 @@ jobs:
                           false
                   );
 
-                  selectAll.setOnClickListener(v -> {
+                  selectAll.setOnClickListener(
+                          v -> {
 
                       selectMode =
                               true;
@@ -1059,13 +1114,16 @@ jobs:
                           i++
                       ) {
 
-                          selected.add(i);
+                          selected.add(
+                                  i
+                          );
                       }
 
                       render();
                   });
 
-                  deleteSelected.setOnClickListener(v -> {
+                  deleteSelected.setOnClickListener(
+                          v -> {
 
                       if (
                           selected.isEmpty()
@@ -1119,10 +1177,14 @@ jobs:
                   );
 
                   ScrollView scroll =
-                          new ScrollView(this);
+                          new ScrollView(
+                                  this
+                          );
 
                   listContainer =
-                          new LinearLayout(this);
+                          new LinearLayout(
+                                  this
+                          );
 
                   listContainer.setOrientation(
                           LinearLayout.VERTICAL
@@ -1152,7 +1214,9 @@ jobs:
                           )
                   );
 
-                  setContentView(root);
+                  setContentView(
+                          root
+                  );
               }
 
               private void reload() {
@@ -1175,6 +1239,7 @@ jobs:
                   if (
                       listContainer == null
                   ) {
+
                       return;
                   }
 
@@ -1185,7 +1250,9 @@ jobs:
                   ) {
 
                       TextView empty =
-                              new TextView(this);
+                              new TextView(
+                                      this
+                              );
 
                       empty.setText(
                               "暂无历史记录"
@@ -1237,10 +1304,14 @@ jobs:
                               i;
 
                       HistoryManager.Item item =
-                              items.get(i);
+                              items.get(
+                                      i
+                              );
 
                       LinearLayout row =
-                              new LinearLayout(this);
+                              new LinearLayout(
+                                      this
+                              );
 
                       row.setOrientation(
                               LinearLayout.HORIZONTAL
@@ -1258,7 +1329,9 @@ jobs:
                       );
 
                       row.setBackgroundColor(
-                              selected.contains(index)
+                              selected.contains(
+                                      index
+                              )
                                       ? Color.rgb(
                                               220,
                                               232,
@@ -1272,7 +1345,9 @@ jobs:
                       ) {
 
                           CheckBox check =
-                                  new CheckBox(this);
+                                  new CheckBox(
+                                          this
+                                  );
 
                           check.setChecked(
                                   selected.contains(
@@ -1280,7 +1355,8 @@ jobs:
                                   )
                           );
 
-                          check.setOnClickListener(v -> {
+                          check.setOnClickListener(
+                                  v -> {
 
                               if (
                                   selected.contains(
@@ -1308,14 +1384,18 @@ jobs:
                       }
 
                       LinearLayout texts =
-                              new LinearLayout(this);
+                              new LinearLayout(
+                                      this
+                              );
 
                       texts.setOrientation(
                               LinearLayout.VERTICAL
                       );
 
                       TextView main =
-                              new TextView(this);
+                              new TextView(
+                                      this
+                              );
 
                       main.setText(
                               item.text
@@ -1334,7 +1414,9 @@ jobs:
                       );
 
                       TextView sub =
-                              new TextView(this);
+                              new TextView(
+                                      this
+                              );
 
                       String time =
                               item.time > 0
@@ -1383,7 +1465,8 @@ jobs:
                               )
                       );
 
-                      row.setOnClickListener(v -> {
+                      row.setOnClickListener(
+                              v -> {
 
                           if (
                               selectMode
@@ -1451,7 +1534,8 @@ jobs:
                           }
                       });
 
-                      row.setOnLongClickListener(v -> {
+                      row.setOnLongClickListener(
+                              v -> {
 
                           selectMode =
                                   true;
@@ -1516,11 +1600,15 @@ jobs:
                               ) {
 
                                   if (
-                                      !selected.contains(i)
+                                      !selected.contains(
+                                              i
+                                      )
                                   ) {
 
                                       newList.add(
-                                              items.get(i)
+                                              items.get(
+                                                      i
+                                              )
                                       );
                                   }
                               }
@@ -1541,6 +1629,7 @@ jobs:
                   if (
                       items.isEmpty()
                   ) {
+
                       return;
                   }
 
@@ -1619,10 +1708,10 @@ jobs:
           public class FloatingService extends Service {
 
               private static final String CHANNEL_ID =
-                      "floating_input_channel_v9";
+                      "floating_input_channel_v10";
 
               private static final int NOTIFICATION_ID =
-                      1009;
+                      1010;
 
               private WindowManager windowManager;
 
@@ -1680,7 +1769,9 @@ jobs:
               private boolean resizeMoved =
                       false;
 
-              private int dp(int value) {
+              private int dp(
+                      int value
+              ) {
 
                   return (int) (
                           value *
@@ -1773,11 +1864,8 @@ jobs:
                           )
                       ) {
 
-                          /*
-                           * 每次真正打开程序：
-                           * 强制恢复90%。
-                           */
-                          alphaIndex = 0;
+                          alphaIndex =
+                                  0;
 
                           updateAlpha();
 
@@ -1796,10 +1884,6 @@ jobs:
                           )
                       ) {
 
-                          /*
-                           * 第一次返回：
-                           * 收起输入法。
-                           */
                           hideKeyboard();
 
                       } else if (
@@ -1808,10 +1892,6 @@ jobs:
                           )
                       ) {
 
-                          /*
-                           * 第二次返回：
-                           * 关闭整个悬浮程序。
-                           */
                           closeEntireApp();
                       }
                   }
@@ -1824,6 +1904,7 @@ jobs:
                   if (
                       inputBox == null
                   ) {
+
                       return;
                   }
 
@@ -1973,7 +2054,7 @@ jobs:
                                   "悬浮输入框正在运行"
                           )
                           .setContentText(
-                                  "点击查看历史记录"
+                                  "百度搜索模式"
                           )
                           .setSmallIcon(
                                   android.R.drawable.ic_menu_edit
@@ -2022,7 +2103,9 @@ jobs:
               ) {
 
                   TextView button =
-                          new TextView(this);
+                          new TextView(
+                                  this
+                          );
 
                   button.setText(
                           text
@@ -2093,6 +2176,7 @@ jobs:
                   if (
                       rootView != null
                   ) {
+
                       return;
                   }
 
@@ -2192,7 +2276,7 @@ jobs:
                           );
 
                   inputBox.setHint(
-                          "输入文字，按回车搜索"
+                          "输入文字，按回车百度搜索"
                   );
 
                   inputBox.setTextSize(
@@ -2338,883 +2422,4 @@ jobs:
                           resizeLp
                   );
 
-                  rootView.addView(
-                          inputFrame,
-                          new LinearLayout.LayoutParams(
-                                  ViewGroup.LayoutParams.MATCH_PARENT,
-                                  0,
-                                  1f
-                          )
-                  );
-
-                  LinearLayout controls =
-                          new LinearLayout(
-                                  this
-                          );
-
-                  controls.setOrientation(
-                          LinearLayout.HORIZONTAL
-                  );
-
-                  controls.setGravity(
-                          Gravity.CENTER_VERTICAL
-                  );
-
-                  Button minus =
-                          new Button(
-                                  this
-                          );
-
-                  minus.setText(
-                          "−"
-                  );
-
-                  minus.setTextSize(
-                          23
-                  );
-
-                  Button plus =
-                          new Button(
-                                  this
-                          );
-
-                  plus.setText(
-                          "+"
-                  );
-
-                  plus.setTextSize(
-                          23
-                  );
-
-                  alphaText =
-                          new TextView(
-                                  this
-                          );
-
-                  alphaText.setGravity(
-                          Gravity.CENTER
-                  );
-
-                  alphaText.setTextSize(
-                          16
-                  );
-
-                  minus.setOnClickListener(v -> {
-
-                      if (
-                          alphaIndex <
-                          alphaLevels.length - 1
-                      ) {
-
-                          alphaIndex++;
-
-                          updateAlpha();
-
-                          saveSettings();
-                      }
-                  });
-
-                  plus.setOnClickListener(v -> {
-
-                      if (
-                          alphaIndex > 0
-                      ) {
-
-                          alphaIndex--;
-
-                          updateAlpha();
-
-                          saveSettings();
-                      }
-                  });
-
-                  controls.addView(
-                          minus,
-                          new LinearLayout.LayoutParams(
-                                  dp(65),
-                                  dp(50)
-                          )
-                  );
-
-                  controls.addView(
-                          alphaText,
-                          new LinearLayout.LayoutParams(
-                                  0,
-                                  dp(50),
-                                  1f
-                          )
-                  );
-
-                  controls.addView(
-                          plus,
-                          new LinearLayout.LayoutParams(
-                                  dp(65),
-                                  dp(50)
-                          )
-                  );
-
-                  rootView.addView(
-                          controls,
-                          new LinearLayout.LayoutParams(
-                                  ViewGroup.LayoutParams.MATCH_PARENT,
-                                  dp(55)
-                          )
-                  );
-
-                  int type =
-                          Build.VERSION.SDK_INT >=
-                          Build.VERSION_CODES.O
-                                  ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                                  : WindowManager.LayoutParams.TYPE_PHONE;
-
-                  /*
-                   * 默认90%。
-                   */
-                  alphaIndex =
-                          prefs.getInt(
-                                  "alpha",
-                                  0
-                          );
-
-                  if (
-                      alphaIndex < 0 ||
-                      alphaIndex >=
-                      alphaLevels.length
-                  ) {
-
-                      alphaIndex =
-                              0;
-                  }
-
-                  params =
-                          new WindowManager.LayoutParams(
-                                  prefs.getInt(
-                                          "width",
-                                          dp(330)
-                                  ),
-                                  prefs.getInt(
-                                          "height",
-                                          dp(300)
-                                  ),
-                                  type,
-                                  WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
-                                  WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                                  PixelFormat.TRANSLUCENT
-                          );
-
-                  params.gravity =
-                          Gravity.TOP |
-                          Gravity.START;
-
-                  params.x =
-                          prefs.getInt(
-                                  "x",
-                                  dp(25)
-                          );
-
-                  params.y =
-                          prefs.getInt(
-                                  "y",
-                                  dp(100)
-                          );
-
-                  params.softInputMode =
-                          WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE |
-                          WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
-
-                  try {
-
-                      windowManager.addView(
-                              rootView,
-                              params
-                      );
-
-                  } catch (
-                          Exception e
-                  ) {
-
-                      rootView =
-                              null;
-
-                      stopSelf();
-
-                      return;
-                  }
-
-                  updateAlpha();
-
-                  setupClose(
-                          closeButton
-                  );
-
-                  setupSettings(
-                          settingsButton
-                  );
-
-                  setupHistory(
-                          historyButton
-                  );
-
-                  setupMove();
-
-                  setupResize();
-
-                  showKeyboard();
-              }
-
-              private void saveCurrentInputHistory() {
-
-                  if (
-                      inputBox == null
-                  ) {
-                      return;
-                  }
-
-                  String text =
-                          inputBox
-                                  .getText()
-                                  .toString()
-                                  .trim();
-
-                  if (
-                      !text.isEmpty()
-                  ) {
-
-                      HistoryManager.add(
-                              this,
-                              text,
-                              "输入"
-                      );
-                  }
-              }
-
-              private void setupHistory(
-                      TextView button
-              ) {
-
-                  button.setOnClickListener(v -> {
-
-                      saveCurrentInputHistory();
-
-                      Intent intent =
-                              new Intent(
-                                      this,
-                                      HistoryActivity.class
-                              );
-
-                      intent.addFlags(
-                              Intent.FLAG_ACTIVITY_NEW_TASK
-                      );
-
-                      startActivity(
-                              intent
-                      );
-                  });
-              }
-
-              private void setupSettings(
-                      TextView button
-              ) {
-
-                  button.setOnClickListener(v -> {
-
-                      saveCurrentInputHistory();
-
-                      Intent intent =
-                              new Intent(
-                                      this,
-                                      SettingsActivity.class
-                              );
-
-                      intent.addFlags(
-                              Intent.FLAG_ACTIVITY_NEW_TASK
-                      );
-
-                      startActivity(
-                              intent
-                      );
-                  });
-              }
-
-              private void setupClose(
-                      TextView button
-              ) {
-
-                  button.setOnClickListener(v -> {
-
-                      closeEntireApp();
-                  });
-              }
-
-              /*
-               * 统一关闭方法。
-               *
-               * 无论：
-               * - 顶部关闭
-               * - 双击返回
-               * - 搜索后退出
-               *
-               * 都会执行：
-               * 1. 保存输入历史
-               * 2. 保存位置和大小
-               * 3. 下一次透明度重置90%
-               * 4. 关闭输入法
-               * 5. 删除APP任务
-               * 6. 停止悬浮服务
-               */
-              private void closeEntireApp() {
-
-                  saveCurrentInputHistory();
-
-                  saveSettings();
-
-                  /*
-                   * 关键：
-                   * 关闭时强制把下次透明度设成90%。
-                   */
-                  prefs.edit()
-                          .putInt(
-                                  "alpha",
-                                  0
-                          )
-                          .apply();
-
-                  hideKeyboard();
-
-                  closeAppTasks();
-
-                  stopSelf();
-              }
-
-              private void searchAndExit() {
-
-                  String text =
-                          inputBox
-                                  .getText()
-                                  .toString()
-                                  .trim();
-
-                  if (
-                      text.isEmpty()
-                  ) {
-
-                      Toast.makeText(
-                              this,
-                              "请先输入搜索内容",
-                              Toast.LENGTH_SHORT
-                      ).show();
-
-                      return;
-                  }
-
-                  HistoryManager.add(
-                          this,
-                          text,
-                          "搜索"
-                  );
-
-                  try {
-
-                      String encoded =
-                              URLEncoder.encode(
-                                      text,
-                                      "UTF-8"
-                              );
-
-                      Uri uri =
-                              Uri.parse(
-                                      "https://www.google.com/search?q=" +
-                                      encoded
-                              );
-
-                      Intent browser =
-                              new Intent(
-                                      Intent.ACTION_VIEW,
-                                      uri
-                              );
-
-                      browser.addFlags(
-                              Intent.FLAG_ACTIVITY_NEW_TASK
-                      );
-
-                      startActivity(
-                              browser
-                      );
-
-                      saveSettings();
-
-                      /*
-                       * 搜索完成后，
-                       * 下次打开也是90%。
-                       */
-                      prefs.edit()
-                              .putInt(
-                                      "alpha",
-                                      0
-                              )
-                              .apply();
-
-                      hideKeyboard();
-
-                      closeAppTasks();
-
-                      stopSelf();
-
-                  } catch (
-                          Exception e
-                  ) {
-
-                      Toast.makeText(
-                              this,
-                              "无法打开浏览器",
-                              Toast.LENGTH_SHORT
-                      ).show();
-                  }
-              }
-
-              private void closeAppTasks() {
-
-                  try {
-
-                      ActivityManager manager =
-                              (ActivityManager)
-                              getSystemService(
-                                      Context.ACTIVITY_SERVICE
-                              );
-
-                      if (
-                          manager != null
-                      ) {
-
-                          for (
-                              ActivityManager.AppTask task :
-                              manager.getAppTasks()
-                          ) {
-
-                              task.finishAndRemoveTask();
-                          }
-                      }
-
-                  } catch (
-                          Exception ignored
-                  ) {
-                  }
-              }
-
-              private void setupMove() {
-
-                  moveHandle.setOnTouchListener(
-                          (view, event) -> {
-
-                      switch (
-                              event.getActionMasked()
-                      ) {
-
-                          case MotionEvent.ACTION_DOWN:
-
-                              moveDownRawX =
-                                      event.getRawX();
-
-                              moveDownRawY =
-                                      event.getRawY();
-
-                              moveStartX =
-                                      params.x;
-
-                              moveStartY =
-                                      params.y;
-
-                              return true;
-
-                          case MotionEvent.ACTION_MOVE:
-
-                              params.x =
-                                      moveStartX +
-                                      (int) (
-                                          event.getRawX() -
-                                          moveDownRawX
-                                      );
-
-                              params.y =
-                                      moveStartY +
-                                      (int) (
-                                          event.getRawY() -
-                                          moveDownRawY
-                                      );
-
-                              try {
-
-                                  windowManager
-                                          .updateViewLayout(
-                                                  rootView,
-                                                  params
-                                          );
-
-                              } catch (
-                                  Exception ignored
-                              ) {
-                              }
-
-                              return true;
-
-                          case MotionEvent.ACTION_UP:
-
-                          case MotionEvent.ACTION_CANCEL:
-
-                              saveSettings();
-
-                              return true;
-                      }
-
-                      return true;
-                  });
-              }
-
-              private void setupResize() {
-
-                  resizeHandle.setOnTouchListener(
-                          (view, event) -> {
-
-                      switch (
-                              event.getActionMasked()
-                      ) {
-
-                          case MotionEvent.ACTION_DOWN:
-
-                              resizeRawX =
-                                      event.getRawX();
-
-                              resizeRawY =
-                                      event.getRawY();
-
-                              startWidth =
-                                      params.width;
-
-                              startHeight =
-                                      params.height;
-
-                              resizeMoved =
-                                      false;
-
-                              return true;
-
-                          case MotionEvent.ACTION_MOVE:
-
-                              int dx =
-                                      (int) (
-                                          event.getRawX() -
-                                          resizeRawX
-                                      );
-
-                              int dy =
-                                      (int) (
-                                          event.getRawY() -
-                                          resizeRawY
-                                      );
-
-                              if (
-                                  Math.abs(dx) > dp(12) ||
-                                  Math.abs(dy) > dp(12)
-                              ) {
-
-                                  resizeMoved =
-                                          true;
-                              }
-
-                              if (
-                                  resizeMoved
-                              ) {
-
-                                  int sw =
-                                          getResources()
-                                                  .getDisplayMetrics()
-                                                  .widthPixels;
-
-                                  int sh =
-                                          getResources()
-                                                  .getDisplayMetrics()
-                                                  .heightPixels;
-
-                                  params.width =
-                                          Math.max(
-                                                  dp(230),
-                                                  Math.min(
-                                                          startWidth + dx,
-                                                          sw
-                                                  )
-                                          );
-
-                                  params.height =
-                                          Math.max(
-                                                  dp(210),
-                                                  Math.min(
-                                                          startHeight + dy,
-                                                          sh
-                                                  )
-                                          );
-
-                                  try {
-
-                                      windowManager
-                                              .updateViewLayout(
-                                                      rootView,
-                                                      params
-                                              );
-
-                                  } catch (
-                                      Exception ignored
-                                  ) {
-                                  }
-                              }
-
-                              return true;
-
-                          case MotionEvent.ACTION_UP:
-
-                              if (
-                                  resizeMoved
-                              ) {
-
-                                  saveSettings();
-
-                              } else {
-
-                                  insertNewLine();
-                              }
-
-                              return true;
-
-                          case MotionEvent.ACTION_CANCEL:
-
-                              if (
-                                  resizeMoved
-                              ) {
-
-                                  saveSettings();
-                              }
-
-                              return true;
-                      }
-
-                      return false;
-                  });
-              }
-
-              private void insertNewLine() {
-
-                  Editable editable =
-                          inputBox.getText();
-
-                  int start =
-                          inputBox.getSelectionStart();
-
-                  int end =
-                          inputBox.getSelectionEnd();
-
-                  if (
-                      start < 0
-                  ) {
-
-                      start =
-                              editable.length();
-                  }
-
-                  if (
-                      end < 0
-                  ) {
-
-                      end =
-                              start;
-                  }
-
-                  int min =
-                          Math.min(
-                                  start,
-                                  end
-                          );
-
-                  int max =
-                          Math.max(
-                                  start,
-                                  end
-                          );
-
-                  editable.replace(
-                          min,
-                          max,
-                          "\n"
-                  );
-
-                  inputBox.setSelection(
-                          Math.min(
-                                  min + 1,
-                                  editable.length()
-                          )
-                  );
-
-                  inputBox.requestFocus();
-
-                  showKeyboard();
-              }
-
-              private void updateAlpha() {
-
-                  if (
-                      rootView == null
-                  ) {
-                      return;
-                  }
-
-                  rootView.setAlpha(
-                          alphaLevels[
-                                  alphaIndex
-                          ]
-                  );
-
-                  alphaText.setText(
-                          alphaLabels[
-                                  alphaIndex
-                          ]
-                  );
-              }
-
-              private void saveSettings() {
-
-                  if (
-                      params == null
-                  ) {
-                      return;
-                  }
-
-                  prefs.edit()
-                          .putInt(
-                                  "x",
-                                  params.x
-                          )
-                          .putInt(
-                                  "y",
-                                  params.y
-                          )
-                          .putInt(
-                                  "width",
-                                  params.width
-                          )
-                          .putInt(
-                                  "height",
-                                  params.height
-                          )
-                          .putInt(
-                                  "alpha",
-                                  alphaIndex
-                          )
-                          .apply();
-              }
-
-              @Override
-              public void onDestroy() {
-
-                  /*
-                   * 注意：
-                   * 这里保存位置和大小，
-                   * 但不再覆盖关闭时设定的90%透明度。
-                   */
-
-                  if (
-                      params != null
-                  ) {
-
-                      prefs.edit()
-                              .putInt(
-                                      "x",
-                                      params.x
-                              )
-                              .putInt(
-                                      "y",
-                                      params.y
-                              )
-                              .putInt(
-                                      "width",
-                                      params.width
-                              )
-                              .putInt(
-                                      "height",
-                                      params.height
-                              )
-                              .apply();
-                  }
-
-                  hideKeyboard();
-
-                  if (
-                      windowManager != null &&
-                      rootView != null
-                  ) {
-
-                      try {
-
-                          windowManager.removeView(
-                                  rootView
-                          );
-
-                      } catch (
-                          Exception ignored
-                      ) {
-                      }
-                  }
-
-                  rootView =
-                          null;
-
-                  if (
-                      Build.VERSION.SDK_INT >=
-                      Build.VERSION_CODES.N
-                  ) {
-
-                      stopForeground(
-                              STOP_FOREGROUND_REMOVE
-                      );
-
-                  } else {
-
-                      stopForeground(
-                              true
-                      );
-                  }
-
-                  super.onDestroy();
-              }
-
-              @Override
-              public IBinder onBind(
-                      Intent intent
-              ) {
-
-                  return null;
-              }
-          }
-          EOF
-
-      - name: Install Gradle
-        shell: bash
-        run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
-          unzip -q gradle-8.9-bin.zip
-          ./gradle-8.9/bin/gradle wrapper --gradle-version 8.9
-          chmod +x gradlew
-
-      - name: Build APK
-        shell: bash
-        run: |
-          ./gradlew assembleDebug
-
-      - name: Prepare APK
-        shell: bash
-        run: |
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V9.apk
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: FloatingInputApp-V9-APK
-          path: FloatingInputApp-V9.apk
-          retention-days: 30
+                 
