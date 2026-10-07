@@ -1,4 +1,4 @@
-name: Build Floating Input APK V15.4
+name: Build Floating Input APK V15.5
 
 on:
   workflow_dispatch:
@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 154
-                  versionName "15.4"
+                  versionCode 155
+                  versionName "15.5"
               }
 
               compileOptions {
@@ -914,7 +914,7 @@ jobs:
                           new TextView(this);
 
                   title.setText(
-                          "悬浮输入框 V15.4"
+                          "悬浮输入框 V15.5"
                   );
 
                   title.setTextSize(26);
@@ -1665,10 +1665,10 @@ jobs:
                   implements SensorEventListener {
 
               private static final String CHANNEL_ID =
-                      "floating_input_channel_v154";
+                      "floating_input_channel_v155";
 
               private static final int NOTIFICATION_ID =
-                      1530;
+                      1550;
 
               private WindowManager windowManager;
               private WindowManager.LayoutParams params;
@@ -1968,7 +1968,7 @@ jobs:
 
                   return builder
                           .setContentTitle(
-                                  "悬浮输入框 V15.4"
+                                  "悬浮输入框 V15.5"
                           )
                           .setContentText(
                                   "实时步数 · 当前气温"
@@ -2122,6 +2122,9 @@ jobs:
                   colorButton =
                           topButton("字体:黑");
 
+                  TextView translate =
+                          topButton("翻译:中");
+
                   moveButton =
                           topButton("⇕移动");
 
@@ -2129,6 +2132,7 @@ jobs:
                   addTop(top, settings);
                   addTop(top, history);
                   addTop(top, colorButton);
+                  addTop(top, translate);
                   addTop(top, moveButton);
 
                   rootView.addView(
@@ -2665,7 +2669,8 @@ jobs:
                   setupButtons(
                           close,
                           settings,
-                          history
+                          history,
+                          translate
                   );
 
                   setupMove();
@@ -2676,7 +2681,8 @@ jobs:
               private void setupButtons(
                       TextView close,
                       TextView settings,
-                      TextView history
+                      TextView history,
+                      TextView translate
               ) {
 
                   close.setOnClickListener(
@@ -2733,6 +2739,32 @@ jobs:
 
                       startActivity(intent);
                   });
+
+                  translate.setOnClickListener(
+                          v -> translateInput("zh")
+                  );
+
+                  translate.setOnLongClickListener(
+                          v -> {
+
+                      translate.setText("翻译:英");
+
+                      Toast.makeText(
+                              this,
+                              "目标语言已切换为英语",
+                              Toast.LENGTH_SHORT
+                      ).show();
+
+                      translateInput("en");
+
+                      handler.postDelayed(
+                              () -> translate.setText("翻译:中"),
+                              1500
+                      );
+
+                      return true;
+                  }
+                  );
 
                   colorButton.setOnClickListener(
                           v -> {
@@ -3563,6 +3595,65 @@ jobs:
                * 输入网址/百度搜索
                * ==============================
                */
+              private void translateInput(
+                      String targetLanguage
+              ) {
+
+                  String text =
+                          inputBox == null
+                                  ? ""
+                                  : inputBox.getText()
+                                          .toString()
+                                          .trim();
+
+                  if (text.isEmpty()) {
+
+                      Toast.makeText(
+                              this,
+                              "请先输入需要翻译的文字",
+                              Toast.LENGTH_SHORT
+                      ).show();
+
+                      return;
+                  }
+
+                  try {
+
+                      String encoded =
+                              URLEncoder.encode(
+                                      text,
+                                      "UTF-8"
+                              )
+                                      .replace("+", "%20");
+
+                      String destination =
+                              "https://fanyi.baidu.com/#auto/" +
+                              targetLanguage +
+                              "/" +
+                              encoded;
+
+                      Intent intent =
+                              new Intent(
+                                      Intent.ACTION_VIEW,
+                                      Uri.parse(destination)
+                              );
+
+                      intent.addFlags(
+                              Intent.FLAG_ACTIVITY_NEW_TASK
+                      );
+
+                      startActivity(intent);
+
+                  } catch (Exception e) {
+
+                      Toast.makeText(
+                              this,
+                              "无法打开百度翻译",
+                              Toast.LENGTH_SHORT
+                      ).show();
+                  }
+              }
+
               private void openText() {
 
                   String text =
@@ -4023,13 +4114,13 @@ jobs:
         shell: bash
         run: |
           test -f app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V15.4.apk
-          ls -lh FloatingInputApp-V15.4.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V15.5.apk
+          ls -lh FloatingInputApp-V15.5.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V15.4-APK
-          path: FloatingInputApp-V15.4.apk
+          name: FloatingInputApp-V15.5-APK
+          path: FloatingInputApp-V15.5.apk
           if-no-files-found: error
           retention-days: 30
