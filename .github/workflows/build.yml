@@ -1,4 +1,4 @@
-name: Build Floating Input APK V15.6
+name: Build Floating Input APK V15.7
 
 on:
   workflow_dispatch:
@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 156
-                  versionName "15.6"
+                  versionCode 157
+                  versionName "15.7"
               }
 
               compileOptions {
@@ -1665,10 +1665,10 @@ jobs:
                   implements SensorEventListener {
 
               private static final String CHANNEL_ID =
-                      "floating_input_channel_v156";
+                      "floating_input_channel_v157";
 
               private static final int NOTIFICATION_ID =
-                      1560;
+                      1570;
 
               private WindowManager windowManager;
               private WindowManager.LayoutParams params;
@@ -3732,7 +3732,20 @@ jobs:
                                   return;
                               }
 
-                              inputBox.setText(result);
+                              String currentText =
+                                      inputBox.getText().toString();
+
+                              String combinedText;
+                              if (currentText.trim().isEmpty()) {
+                                  combinedText = result;
+                              } else {
+                                  combinedText =
+                                          currentText +
+                                          "\\n" +
+                                          result;
+                              }
+
+                              inputBox.setText(combinedText);
                               inputBox.setSelection(
                                       inputBox.length()
                               );
@@ -4233,13 +4246,13 @@ jobs:
         shell: bash
         run: |
           test -f app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V15.6.apk
-          ls -lh FloatingInputApp-V15.6.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V15.7.apk
+          ls -lh FloatingInputApp-V15.7.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V15.6-APK
-          path: FloatingInputApp-V15.6.apk
+          name: FloatingInputApp-V15.7-APK
+          path: FloatingInputApp-V15.7.apk
           if-no-files-found: error
           retention-days: 30
