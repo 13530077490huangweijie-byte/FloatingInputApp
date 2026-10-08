@@ -1,4 +1,4 @@
-name: Build Floating Input APK V16.1.1
+name: Build Floating Input APK V16.2
 
 on:
   workflow_dispatch:
@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 162
-                  versionName "16.1.1"
+                  versionCode 163
+                  versionName "16.2"
               }
 
               compileOptions {
@@ -126,6 +126,12 @@ jobs:
               <uses-feature
                   android:name="android.hardware.sensor.stepcounter"
                   android:required="false" />
+
+              <queries>
+                  <intent>
+                      <action android:name="android.intent.action.TTS_SERVICE" />
+                  </intent>
+              </queries>
 
               <application
                   android:allowBackup="false"
@@ -1779,10 +1785,16 @@ jobs:
                           );
 
                   speechEngine = new TextToSpeech(this, status -> {
-                      speechReady = status == TextToSpeech.SUCCESS;
-                      if (speechReady) {
-                          speechEngine.setLanguage(Locale.getDefault());
-                      }
+                      handler.post(() -> {
+                          speechReady = status == TextToSpeech.SUCCESS;
+                          if (speechReady && speechEngine != null) {
+                              int languageResult = speechEngine.setLanguage(Locale.SIMPLIFIED_CHINESE);
+                              if (languageResult == TextToSpeech.LANG_MISSING_DATA ||
+                                  languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                                  speechEngine.setLanguage(Locale.getDefault());
+                              }
+                          }
+                      });
                   });
                   createOverlay();
 
@@ -2716,11 +2728,18 @@ jobs:
                   speakButton.setOnClickListener(v -> {
                       String content = inputBox == null ? "" : inputBox.getText().toString();
                       if (content.trim().isEmpty()) {
-                          Toast.makeText(this, "请先输入文字", Toast.LENGTH_SHORT).show();
-                      } else if (!speechReady || speechEngine == null) {
-                          Toast.makeText(this, "朗读引擎尚未准备好", Toast.LENGTH_SHORT).show();
+                          Toast.makeText(this, "请先输入文字", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+                      if (!speechReady || speechEngine == null) {
+                          Toast.makeText(this, "语音引擎未就绪，请检查手机文字转语音设置", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+                      int result = speechEngine.speak(content, TextToSpeech.QUEUE_FLUSH, null, "floating_read");
+                      if (result == TextToSpeech.ERROR) {
+                          Toast.makeText(this, "朗读启动失败，请检查语音引擎及语音数据", Toast.LENGTH_LONG).show();
                       } else {
-                          speechEngine.speak(content, TextToSpeech.QUEUE_FLUSH, null, "floating_read");
+                          Toast.makeText(this, "正在朗读", Toast.LENGTH_SHORT).show();
                       }
                   });
                   speakButton.setOnLongClickListener(v -> {
@@ -4290,13 +4309,13 @@ jobs:
         shell: bash
         run: |
           test -f app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V16.1.1.apk
-          ls -lh FloatingInputApp-V16.1.1.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V16.2.apk
+          ls -lh FloatingInputApp-V16.2.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V16.1.1-APK
-          path: FloatingInputApp-V16.1.1.apk
+          name: FloatingInputApp-V16.2-APK
+          path: FloatingInputApp-V16.2.apk
           if-no-files-found: error
           retention-days: 30
