@@ -1,4 +1,4 @@
-name: Build Floating Input APK V16.2
+name: Build Floating Input APK V16.3
 
 on:
   workflow_dispatch:
@@ -75,7 +75,7 @@ jobs:
                   minSdk 23
                   targetSdk 35
                   versionCode 163
-                  versionName "16.2"
+                  versionName "16.3"
               }
 
               compileOptions {
@@ -2145,6 +2145,14 @@ jobs:
                   addTop(top, moveButton);
 
                   expandedTop = top;
+                  rootView.setOnTouchListener((v, event) -> {
+                      if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
+                          releaseInputFocus();
+                          return false;
+                      }
+                      return false;
+                  });
+
                   rootView.addView(
                           top,
                           new LinearLayout.LayoutParams(
@@ -2661,6 +2669,7 @@ jobs:
                                   ),
                                   type,
                                   WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
+                                  WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH |
                                   WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
                                   WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                                   PixelFormat.TRANSLUCENT
@@ -4046,6 +4055,23 @@ jobs:
                   }
               }
 
+              private void releaseInputFocus() {
+                  if (params == null || windowManager == null || rootView == null) return;
+                  if ((params.flags & WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) != 0) return;
+                  params.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                  inputBox.clearFocus();
+                  try { windowManager.updateViewLayout(rootView, params); }
+                  catch (Exception ignored) {}
+              }
+
+              private void acquireInputFocus() {
+                  if (params == null || windowManager == null || rootView == null) return;
+                  if ((params.flags & WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0) return;
+                  params.flags &= ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                  try { windowManager.updateViewLayout(rootView, params); }
+                  catch (Exception ignored) {}
+              }
+
               private void showKeyboard() {
 
                   if (
@@ -4069,6 +4095,7 @@ jobs:
                                           true
                                   );
 
+                                  acquireInputFocus();
                                   inputBox.requestFocus();
 
                                   inputBox.setSelection(
@@ -4309,13 +4336,13 @@ jobs:
         shell: bash
         run: |
           test -f app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V16.2.apk
-          ls -lh FloatingInputApp-V16.2.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V16.3.apk
+          ls -lh FloatingInputApp-V16.3.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V16.2-APK
-          path: FloatingInputApp-V16.2.apk
+          name: FloatingInputApp-V16.3-APK
+          path: FloatingInputApp-V16.3.apk
           if-no-files-found: error
           retention-days: 30
