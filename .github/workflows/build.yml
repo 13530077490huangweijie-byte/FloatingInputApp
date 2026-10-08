@@ -1,4 +1,4 @@
-name: Build Floating Input APK V15.9
+name: Build Floating Input APK V16.0
 
 on:
   workflow_dispatch:
@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 159
-                  versionName "15.9"
+                  versionCode 160
+                  versionName "16.0"
               }
 
               compileOptions {
@@ -1657,10 +1657,10 @@ jobs:
                   implements SensorEventListener {
 
               private static final String CHANNEL_ID =
-                      "floating_input_channel_v159";
+                      "floating_input_channel_v160";
 
               private static final int NOTIFICATION_ID =
-                      1590;
+                      1600;
 
               private WindowManager windowManager;
               private WindowManager.LayoutParams params;
@@ -3492,22 +3492,14 @@ jobs:
 
                                   params.width =
                                           Math.max(
-                                                  dp(270),
-                                                  Math.min(
-                                                          resizeStartWidth +
-                                                          dx,
-                                                          screenWidth
-                                                  )
+                                                  1,
+                                                  resizeStartWidth + dx
                                           );
 
                                   params.height =
                                           Math.max(
-                                                  dp(280),
-                                                  Math.min(
-                                                          resizeStartHeight +
-                                                          dy,
-                                                          screenHeight
-                                                  )
+                                                  1,
+                                                  resizeStartHeight + dy
                                           );
 
                                   try {
@@ -4261,13 +4253,13 @@ jobs:
         shell: bash
         run: |
           test -f app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V15.9.apk
-          ls -lh FloatingInputApp-V15.9.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V16.0.apk
+          ls -lh FloatingInputApp-V16.0.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V15.9-APK
-          path: FloatingInputApp-V15.9.apk
+          name: FloatingInputApp-V16.0-APK
+          path: FloatingInputApp-V16.0.apk
           if-no-files-found: error
           retention-days: 30
