@@ -1,4 +1,4 @@
-name: Build Floating Input APK V15.8
+name: Build Floating Input APK V15.9
 
 on:
   workflow_dispatch:
@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 158
-                  versionName "15.8"
+                  versionCode 159
+                  versionName "15.9"
               }
 
               compileOptions {
@@ -1657,10 +1657,10 @@ jobs:
                   implements SensorEventListener {
 
               private static final String CHANNEL_ID =
-                      "floating_input_channel_v158";
+                      "floating_input_channel_v159";
 
               private static final int NOTIFICATION_ID =
-                      1580;
+                      1590;
 
               private WindowManager windowManager;
               private WindowManager.LayoutParams params;
@@ -1670,6 +1670,11 @@ jobs:
               private EditText inputBox;
 
               private TextView moveButton;
+              private TextView compactMoveButton;
+              private boolean collapsed = false;
+              private LinearLayout expandedTop;
+              private LinearLayout expandedInfo;
+              private LinearLayout compactControls;
               private TextView resizeButton;
               private TextView colorButton;
 
@@ -2114,6 +2119,7 @@ jobs:
                   addTop(top, translate);
                   addTop(top, moveButton);
 
+                  expandedTop = top;
                   rootView.addView(
                           top,
                           new LinearLayout.LayoutParams(
@@ -2374,6 +2380,32 @@ jobs:
                           )
                   );
 
+                  // 折叠工具条：保留展开、移动、缩放及细透明度条
+                  compactControls = new LinearLayout(this);
+                  compactControls.setGravity(Gravity.CENTER_VERTICAL);
+                  TextView foldButton = topButton("折叠");
+                  foldButton.setTextSize(11);
+                  compactMoveButton = topButton("⇕");
+                  compactMoveButton.setTextSize(11);
+                  TextView compactResize = topButton("↘");
+                  compactResize.setTextSize(11);
+                  compactControls.addView(foldButton,
+                          new LinearLayout.LayoutParams(dp(48), dp(30)));
+                  compactControls.addView(compactMoveButton,
+                          new LinearLayout.LayoutParams(dp(36), dp(30)));
+                  compactControls.addView(compactResize,
+                          new LinearLayout.LayoutParams(dp(36), dp(30)));
+                  rootView.addView(compactControls,
+                          new LinearLayout.LayoutParams(-1, dp(32)));
+                  foldButton.setOnClickListener(v -> {
+                      collapsed = !collapsed;
+                      expandedTop.setVisibility(collapsed ? View.GONE : View.VISIBLE);
+                      if (expandedInfo != null)
+                          expandedInfo.setVisibility(collapsed ? View.GONE : View.VISIBLE);
+                      foldButton.setText(collapsed ? "展开" : "折叠");
+                  });
+                  compactResize.setOnClickListener(v -> insertNewLine());
+
                   /*
                    * 透明度滑块
                    */
@@ -2470,7 +2502,7 @@ jobs:
                           alphaTitle,
                           new LinearLayout.LayoutParams(
                                   dp(55),
-                                  dp(45)
+                                  dp(30)
                           )
                   );
 
@@ -2478,7 +2510,7 @@ jobs:
                           alphaSeekBar,
                           new LinearLayout.LayoutParams(
                                   0,
-                                  dp(45),
+                                  dp(30),
                                   1f
                           )
                   );
@@ -2487,7 +2519,7 @@ jobs:
                           alphaValue,
                           new LinearLayout.LayoutParams(
                                   dp(50),
-                                  dp(45)
+                                  dp(30)
                           )
                   );
 
@@ -2495,7 +2527,7 @@ jobs:
                           alphaBar,
                           new LinearLayout.LayoutParams(
                                   ViewGroup.LayoutParams.MATCH_PARENT,
-                                  dp(47)
+                                  dp(32)
                           )
                   );
 
@@ -2577,6 +2609,7 @@ jobs:
                           )
                   );
 
+                  expandedInfo = info;
                   rootView.addView(
                           info,
                           new LinearLayout.LayoutParams(
@@ -2603,7 +2636,8 @@ jobs:
                                   ),
                                   type,
                                   WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
-                                  WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                                  WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+                                  WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                                   PixelFormat.TRANSLUCENT
                           );
 
@@ -3319,7 +3353,7 @@ jobs:
                */
               private void setupMove() {
 
-                  moveButton.setOnTouchListener(
+                  View.OnTouchListener dragListener =
                           (v, event) -> {
 
                       switch (
@@ -3383,7 +3417,9 @@ jobs:
                       }
 
                       return true;
-                  });
+                  };
+                  moveButton.setOnTouchListener(dragListener);
+                  compactMoveButton.setOnTouchListener(dragListener);
               }
 
               /*
@@ -4225,13 +4261,13 @@ jobs:
         shell: bash
         run: |
           test -f app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V15.8.apk
-          ls -lh FloatingInputApp-V15.8.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V15.9.apk
+          ls -lh FloatingInputApp-V15.9.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V15.8-APK
-          path: FloatingInputApp-V15.8.apk
+          name: FloatingInputApp-V15.9-APK
+          path: FloatingInputApp-V15.9.apk
           if-no-files-found: error
           retention-days: 30
