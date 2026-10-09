@@ -1,4 +1,4 @@
-name: Build Floating Input APK V16.9
+name: Build Floating Input APK V17.0
 
 on:
   workflow_dispatch:
@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 169
-                  versionName "16.9"
+                  versionCode 170
+                  versionName "17.0"
               }
 
               compileOptions {
@@ -243,6 +243,23 @@ jobs:
           import android.widget.Toast;
           public class RecordActivity extends Activity {
               private EditText body;
+              private Button expand;
+              private boolean expanded=false;
+              private void refresh() {
+                  String raw=RecordStore.read(this);
+                  String[] pieces=raw.split("，",-1);
+                  java.util.ArrayList<String> entries=new java.util.ArrayList<>();
+                  for(String p:pieces) if(!p.trim().isEmpty()) entries.add(p.trim());
+                  int start=expanded?0:Math.max(0,entries.size()-3);
+                  StringBuilder result=new StringBuilder();
+                  for(int i=start;i<entries.size();i++) {
+                      if(result.length()>0) result.append("，");
+                      result.append(entries.get(i));
+                  }
+                  body.setText(result.length()==0?"暂无记录":result.toString());
+                  expand.setText(expanded?"收起":"展开全部");
+                  expand.setVisibility(entries.size()>3?View.VISIBLE:View.GONE);
+              }
               @Override public void onCreate(Bundle state) {
                   super.onCreate(state);
                   boolean settings=getIntent().getBooleanExtra("settings",false);
@@ -251,7 +268,7 @@ jobs:
                   root.setPadding(20,20,20,20);
                   root.setBackgroundColor(Color.WHITE);
                   TextView title=new TextView(this);
-                  title.setText(settings?"记录设置（仅本悬浮窗）":"输入留存（24小时自动清空）");
+                  title.setText(settings?"记录设置（仅本悬浮窗）":"输入记录（最近3条）");
                   title.setTextSize(20);
                   root.addView(title);
                   if(settings) {
@@ -270,12 +287,13 @@ jobs:
                   bar.addView(clear,new LinearLayout.LayoutParams(0,-2,1));
                   root.addView(bar);
                   body=new EditText(this);
-                  body.setText(RecordStore.read(this));
                   body.setTextIsSelectable(true);
-                  body.setKeyListener(null);
                   body.setShowSoftInputOnFocus(false);
                   body.setBackgroundColor(Color.rgb(245,245,245));
                   root.addView(body,new LinearLayout.LayoutParams(-1,0,1));
+                  expand=new Button(this);
+                  root.addView(expand);
+                  expand.setOnClickListener(v->{expanded=!expanded;refresh();});
                   select.setOnClickListener(v->{body.requestFocus();body.selectAll();});
                   copy.setOnClickListener(v->{
                       int a=body.getSelectionStart(),b=body.getSelectionEnd();
@@ -285,8 +303,9 @@ jobs:
                           .setPrimaryClip(ClipData.newPlainText("记录",chosen));
                       Toast.makeText(this,"已复制",Toast.LENGTH_SHORT).show();
                   });
-                  clear.setOnClickListener(v->{RecordStore.clear(this);body.setText("");});
+                  clear.setOnClickListener(v->{RecordStore.clear(this);refresh();});
                   setContentView(root);
+                  refresh();
               }
           }
           EOF
@@ -2268,17 +2287,9 @@ jobs:
                   addTop(top, speakButton);
                   addTop(top, recordButton);
                   recordButton.setOnClickListener(v -> {
-                      if (inlineRecordView == null || expandRecordButton == null) return;
-                      if (inlineRecordView.getVisibility() == View.VISIBLE) {
-                          inlineRecordView.setVisibility(View.GONE);
-                          expandRecordButton.setVisibility(View.GONE);
-                          recordExpanded = false;
-                      } else {
-                          recordExpanded = false;
-                          updateInlineRecords();
-                          inlineRecordView.setVisibility(View.VISIBLE);
-                          expandRecordButton.setVisibility(View.VISIBLE);
-                      }
+                      Intent i = new Intent(this, RecordActivity.class);
+                      i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                      startActivity(i);
                   });
                   recordButton.setOnLongClickListener(v -> {
                       Intent i=new Intent(this,RecordActivity.class);
@@ -4584,13 +4595,13 @@ jobs:
         shell: bash
         run: |
           test -f app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V16.9.apk
-          ls -lh FloatingInputApp-V16.9.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V17.0.apk
+          ls -lh FloatingInputApp-V17.0.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V16.9-APK
-          path: FloatingInputApp-V16.9.apk
+          name: FloatingInputApp-V17.0-APK
+          path: FloatingInputApp-V17.0.apk
           if-no-files-found: error
           retention-days: 30
