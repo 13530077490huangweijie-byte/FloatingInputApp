@@ -1,4 +1,4 @@
-name: Build Floating Input APK V16.6
+name: Build Floating Input APK V16.7
 
 on:
   workflow_dispatch:
@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 166
-                  versionName "16.6"
+                  versionCode 167
+                  versionName "16.7"
               }
 
               compileOptions {
@@ -1776,6 +1776,8 @@ jobs:
 
               private EditText inputBox;
               private TextView inlineRecordView;
+              private TextView expandRecordButton;
+              private boolean recordExpanded = false;
               private boolean restoringRecordText = false;
               private TextToSpeech speechEngine;
               private boolean speechReady = false;
@@ -2264,13 +2266,16 @@ jobs:
                   addTop(top, speakButton);
                   addTop(top, recordButton);
                   recordButton.setOnClickListener(v -> {
-                      if (inlineRecordView == null) return;
+                      if (inlineRecordView == null || expandRecordButton == null) return;
                       if (inlineRecordView.getVisibility() == View.VISIBLE) {
                           inlineRecordView.setVisibility(View.GONE);
+                          expandRecordButton.setVisibility(View.GONE);
+                          recordExpanded = false;
                       } else {
-                          String saved=RecordStore.read(this);
-                          inlineRecordView.setText("\\n" + (saved.isEmpty() ? "暂无记录" : saved));
+                          recordExpanded = false;
+                          updateInlineRecords();
                           inlineRecordView.setVisibility(View.VISIBLE);
+                          expandRecordButton.setVisibility(View.VISIBLE);
                       }
                   });
                   recordButton.setOnLongClickListener(v -> {
@@ -2510,7 +2515,7 @@ jobs:
                   inlineRecordView.setTextColor(Color.BLACK);
                   inlineRecordView.setBackgroundColor(Color.argb(235,255,255,255));
                   inlineRecordView.setPadding(dp(8),dp(3),dp(54),dp(6));
-                  inlineRecordView.setMaxLines(6);
+                  inlineRecordView.setMaxLines(5);
                   inlineRecordView.setVerticalScrollBarEnabled(true);
                   inlineRecordView.setMovementMethod(
                           new android.text.method.ScrollingMovementMethod());
@@ -2521,7 +2526,24 @@ jobs:
                                   ViewGroup.LayoutParams.MATCH_PARENT,
                                   ViewGroup.LayoutParams.WRAP_CONTENT,
                                   Gravity.BOTTOM);
+                  recordLp.bottomMargin = dp(30);
                   inputArea.addView(inlineRecordView,recordLp);
+
+                  expandRecordButton = new TextView(this);
+                  expandRecordButton.setText("展开");
+                  expandRecordButton.setTextSize(12);
+                  expandRecordButton.setTextColor(Color.BLACK);
+                  expandRecordButton.setGravity(Gravity.CENTER);
+                  expandRecordButton.setBackgroundColor(Color.argb(240,235,235,235));
+                  expandRecordButton.setVisibility(View.GONE);
+                  FrameLayout.LayoutParams expandLp = new FrameLayout.LayoutParams(
+                          dp(56), dp(28), Gravity.BOTTOM | Gravity.START);
+                  expandLp.leftMargin = dp(6);
+                  inputArea.addView(expandRecordButton, expandLp);
+                  expandRecordButton.setOnClickListener(v -> {
+                      recordExpanded = !recordExpanded;
+                      updateInlineRecords();
+                  });
 
                   resizeButton =
                           new TextView(this);
@@ -2888,6 +2910,30 @@ jobs:
                   setupMove();
 
                   setupResize();
+              }
+
+              private void updateInlineRecords() {
+                  if (inlineRecordView == null) return;
+                  String saved = RecordStore.read(this);
+                  String[] raw = saved.split("，", -1);
+                  java.util.ArrayList<String> entries = new java.util.ArrayList<>();
+                  for (String part : raw) {
+                      if (!part.trim().isEmpty()) entries.add(part.trim());
+                  }
+                  if (entries.isEmpty()) {
+                      inlineRecordView.setText("\\n暂无记录");
+                  } else {
+                      int start = recordExpanded ? 0 : Math.max(0, entries.size() - 3);
+                      StringBuilder view = new StringBuilder("\\n");
+                      for (int i = start; i < entries.size(); i++) {
+                          if (i > start) view.append("\\n");
+                          view.append(entries.get(i));
+                      }
+                      inlineRecordView.setText(view.toString());
+                  }
+                  inlineRecordView.setMaxLines(recordExpanded ? Integer.MAX_VALUE : 5);
+                  if (expandRecordButton != null)
+                      expandRecordButton.setText(recordExpanded ? "收起" : "展开");
               }
 
               private void setupButtons(
@@ -4504,13 +4550,13 @@ jobs:
         shell: bash
         run: |
           test -f app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V16.6.apk
-          ls -lh FloatingInputApp-V16.6.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V16.7.apk
+          ls -lh FloatingInputApp-V16.7.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V16.6-APK
-          path: FloatingInputApp-V16.6.apk
+          name: FloatingInputApp-V16.7-APK
+          path: FloatingInputApp-V16.7.apk
           if-no-files-found: error
           retention-days: 30
