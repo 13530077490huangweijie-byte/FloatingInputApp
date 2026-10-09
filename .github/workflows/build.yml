@@ -1,4 +1,4 @@
-name: Build Floating Input APK V17.0
+name: Build Floating Input APK V17.2
 
 on:
   workflow_dispatch:
@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 172
-                  versionName "17.1.2"
+                  versionCode 173
+                  versionName "17.2"
               }
 
               compileOptions {
@@ -2009,7 +2009,8 @@ jobs:
                       "SHOW_FROM_RECORD".equals(action)
                   ) {
                       showOverlay();
-                      releaseInputFocus();
+                      // 从记录页返回时恢复可触摸，避免无法操作
+                      acquireInputFocus();
                   } else if (
                       "SHOW_FROM_HISTORY".equals(action)
                   ) {
@@ -4339,17 +4340,22 @@ jobs:
 
               private void releaseInputFocus() {
                   if (params == null || windowManager == null || rootView == null) return;
-                  if ((params.flags & WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) != 0) return;
-                  params.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
-                  inputBox.clearFocus();
+                  // 失去输入焦点时，整个悬浮窗区域都不拦截点击和滑动
+                  int desired = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                              | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+                  if ((params.flags & desired) == desired) return;
+                  params.flags |= desired;
+                  if (inputBox != null) inputBox.clearFocus();
                   try { windowManager.updateViewLayout(rootView, params); }
                   catch (Exception ignored) {}
               }
 
               private void acquireInputFocus() {
                   if (params == null || windowManager == null || rootView == null) return;
-                  if ((params.flags & WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0) return;
-                  params.flags &= ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                  int mask = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                           | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+                  if ((params.flags & mask) == 0) return;
+                  params.flags &= ~mask;
                   try { windowManager.updateViewLayout(rootView, params); }
                   catch (Exception ignored) {}
               }
