@@ -1,4 +1,4 @@
-name: Build Floating Input APK V16.7
+name: Build Floating Input APK V16.8
 
 on:
   workflow_dispatch:
@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 167
-                  versionName "16.7"
+                  versionCode 168
+                  versionName "16.8"
               }
 
               compileOptions {
@@ -1775,7 +1775,7 @@ jobs:
               private LinearLayout rootView;
 
               private EditText inputBox;
-              private TextView inlineRecordView;
+              private EditText inlineRecordView;\n              private TextView insertRecordButton;
               private TextView expandRecordButton;
               private boolean recordExpanded = false;
               private boolean restoringRecordText = false;
@@ -2270,12 +2270,14 @@ jobs:
                       if (inlineRecordView.getVisibility() == View.VISIBLE) {
                           inlineRecordView.setVisibility(View.GONE);
                           expandRecordButton.setVisibility(View.GONE);
+                          insertRecordButton.setVisibility(View.GONE);
                           recordExpanded = false;
                       } else {
                           recordExpanded = false;
                           updateInlineRecords();
                           inlineRecordView.setVisibility(View.VISIBLE);
                           expandRecordButton.setVisibility(View.VISIBLE);
+                          insertRecordButton.setVisibility(View.VISIBLE);
                       }
                   });
                   recordButton.setOnLongClickListener(v -> {
@@ -2510,16 +2512,17 @@ jobs:
                   );
 
                   // 记录显示在输入框区域底部，不修改原始输入文字
-                  inlineRecordView = new TextView(this);
+                  inlineRecordView = new EditText(this);
                   inlineRecordView.setTextSize(15);
                   inlineRecordView.setTextColor(Color.BLACK);
                   inlineRecordView.setBackgroundColor(Color.argb(235,255,255,255));
                   inlineRecordView.setPadding(dp(8),dp(3),dp(54),dp(6));
                   inlineRecordView.setMaxLines(5);
                   inlineRecordView.setVerticalScrollBarEnabled(true);
-                  inlineRecordView.setMovementMethod(
-                          new android.text.method.ScrollingMovementMethod());
                   inlineRecordView.setTextIsSelectable(true);
+                  inlineRecordView.setKeyListener(null);
+                  inlineRecordView.setShowSoftInputOnFocus(false);
+                  inlineRecordView.setLongClickable(true);
                   inlineRecordView.setVisibility(View.GONE);
                   FrameLayout.LayoutParams recordLp =
                           new FrameLayout.LayoutParams(
@@ -2543,6 +2546,41 @@ jobs:
                   expandRecordButton.setOnClickListener(v -> {
                       recordExpanded = !recordExpanded;
                       updateInlineRecords();
+                  });
+
+                  insertRecordButton = new TextView(this);
+                  insertRecordButton.setText("插入光标");
+                  insertRecordButton.setTextSize(12);
+                  insertRecordButton.setTextColor(Color.BLACK);
+                  insertRecordButton.setGravity(Gravity.CENTER);
+                  insertRecordButton.setBackgroundColor(Color.argb(240,235,235,235));
+                  insertRecordButton.setVisibility(View.GONE);
+                  FrameLayout.LayoutParams insertLp = new FrameLayout.LayoutParams(
+                          dp(82),dp(28),Gravity.BOTTOM | Gravity.START);
+                  insertLp.leftMargin=dp(68);
+                  inputArea.addView(insertRecordButton,insertLp);
+                  insertRecordButton.setOnClickListener(v -> {
+                      if(inputBox == null || inlineRecordView == null) return;
+                      String shown=inlineRecordView.getText().toString();
+                      int a=inlineRecordView.getSelectionStart();
+                      int b=inlineRecordView.getSelectionEnd();
+                      String chosen;
+                      if(a>=0 && b>=0 && a!=b)
+                          chosen=shown.substring(Math.min(a,b),Math.max(a,b));
+                      else {
+                          String saved=RecordStore.read(this);
+                          String[] parts=saved.split("，");
+                          chosen="";
+                          for(int j=parts.length-1;j>=0;j--) {
+                              if(!parts[j].trim().isEmpty()) {chosen=parts[j].trim();break;}
+                          }
+                      }
+                      if(chosen.isEmpty()) return;
+                      int at=Math.max(0,inputBox.getSelectionStart());
+                      at=Math.min(at,inputBox.length());
+                      inputBox.getText().insert(at,chosen);
+                      inputBox.requestFocus();
+                      inputBox.setSelection(Math.min(at+chosen.length(),inputBox.length()));
                   });
 
                   resizeButton =
@@ -2913,27 +2951,25 @@ jobs:
               }
 
               private void updateInlineRecords() {
-                  if (inlineRecordView == null) return;
-                  String saved = RecordStore.read(this);
-                  String[] raw = saved.split("，", -1);
-                  java.util.ArrayList<String> entries = new java.util.ArrayList<>();
-                  for (String part : raw) {
-                      if (!part.trim().isEmpty()) entries.add(part.trim());
-                  }
-                  if (entries.isEmpty()) {
-                      inlineRecordView.setText("\\n暂无记录");
+                  if(inlineRecordView==null) return;
+                  String saved=RecordStore.read(this);
+                  String[] raw=saved.split("，",-1);
+                  java.util.ArrayList<String> entries=new java.util.ArrayList<>();
+                  for(String part:raw) if(!part.trim().isEmpty()) entries.add(part.trim());
+                  if(entries.isEmpty()) {
+                      inlineRecordView.setText("\n暂无记录");
                   } else {
-                      int start = recordExpanded ? 0 : Math.max(0, entries.size() - 3);
-                      StringBuilder view = new StringBuilder("\\n");
-                      for (int i = start; i < entries.size(); i++) {
-                          if (i > start) view.append("\\n");
+                      int start=recordExpanded?0:Math.max(0,entries.size()-3);
+                      StringBuilder view=new StringBuilder("\n");
+                      for(int i=start;i<entries.size();i++) {
+                          if(i>start) view.append("，");
                           view.append(entries.get(i));
                       }
                       inlineRecordView.setText(view.toString());
                   }
-                  inlineRecordView.setMaxLines(recordExpanded ? Integer.MAX_VALUE : 5);
-                  if (expandRecordButton != null)
-                      expandRecordButton.setText(recordExpanded ? "收起" : "展开");
+                  inlineRecordView.setMaxLines(recordExpanded?Integer.MAX_VALUE:5);
+                  if(expandRecordButton!=null)
+                      expandRecordButton.setText(recordExpanded?"收起":"展开");
               }
 
               private void setupButtons(
@@ -4550,13 +4586,13 @@ jobs:
         shell: bash
         run: |
           test -f app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V16.7.apk
-          ls -lh FloatingInputApp-V16.7.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V16.8.apk
+          ls -lh FloatingInputApp-V16.8.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V16.7-APK
-          path: FloatingInputApp-V16.7.apk
+          name: FloatingInputApp-V16.8-APK
+          path: FloatingInputApp-V16.8.apk
           if-no-files-found: error
           retention-days: 30
