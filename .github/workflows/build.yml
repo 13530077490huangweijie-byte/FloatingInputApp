@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 171
-                  versionName "17.1"
+                  versionCode 172
+                  versionName "17.1.1"
               }
 
               compileOptions {
@@ -197,6 +197,7 @@ jobs:
           cat > app/src/main/java/com/jiexin/floatinginput/RecordStore.java <<'EOF'
           package com.jiexin.floatinginput;
           import android.content.Context;
+          import android.content.Intent;
           import android.content.SharedPreferences;
           public final class RecordStore {
               private static final long DAY=86400000L;
