@@ -1,4 +1,4 @@
-name: Build Floating Input APK V17.2
+name: Build Floating Input APK V17.3
 
 on:
   workflow_dispatch:
@@ -75,7 +75,7 @@ jobs:
                   minSdk 23
                   targetSdk 35
                   versionCode 173
-                  versionName "17.2"
+                  versionName "17.3"
               }
 
               compileOptions {
@@ -1802,6 +1802,10 @@ jobs:
               private WindowManager.LayoutParams params;
 
               private LinearLayout rootView;
+              private TextView settingsControl;
+              private TextView floatingSettingsControl;
+              private WindowManager.LayoutParams floatingSettingsParams;
+              private boolean manualPassThrough = false;
 
               private EditText inputBox;
               private EditText inlineRecordView;
@@ -2009,8 +2013,7 @@ jobs:
                       "SHOW_FROM_RECORD".equals(action)
                   ) {
                       showOverlay();
-                      // 从记录页返回时恢复可触摸，避免无法操作
-                      acquireInputFocus();
+                      releaseInputFocus();
                   } else if (
                       "SHOW_FROM_HISTORY".equals(action)
                   ) {
@@ -2279,6 +2282,10 @@ jobs:
 
                   TextView settings =
                           topButton("设置");
+                  settingsControl = settings;
+                  settings.setBackground(bg(Color.rgb(65, 185, 85), 7,
+                          Color.rgb(35, 125, 55)));
+                  settings.setTextColor(Color.WHITE);
 
                   TextView history =
                           topButton("历史");
@@ -3044,22 +3051,10 @@ jobs:
                           v -> closeEverything()
                   );
 
-                  settings.setOnClickListener(
-                          v -> {
-
-                      saveInputHistory();
-
-                      Intent intent =
-                              new Intent(
-                                      this,
-                                      SettingsActivity.class
-                              );
-
-                      intent.addFlags(
-                              Intent.FLAG_ACTIVITY_NEW_TASK
-                      );
-
-                      startActivity(intent);
+                  settings.setOnClickListener(v -> toggleManualPassThrough());
+                  settings.setOnLongClickListener(v -> {
+                      openSettingsPage();
+                      return true;
                   });
 
                   history.setOnClickListener(
@@ -4338,29 +4333,107 @@ jobs:
                   }
               }
 
-              private void releaseInputFocus() {
-                  if (params == null || windowManager == null || rootView == null) return;
-                  // 失去输入焦点时，整个悬浮窗区域都不拦截点击和滑动
-                  int desired = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                              | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
-                  if ((params.flags & desired) == desired) return;
-                  params.flags |= desired;
+              private void openSettingsPage() {
+                  saveInputHistory();
+                  Intent intent = new Intent(this, SettingsActivity.class);
+                  intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                  startActivity(intent);
+              }
+
+              private void toggleManualPassThrough() {
+                  if (params == null || rootView == null || windowManager == null) return;
+                  if (manualPassThrough) {
+                      // 先恢复主窗接触能力，再移除独立绿色按钮。
+                      params.flags &= ~WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+                      try { windowManager.updateViewLayout(rootView, params); }
+                      catch (Exception ignored) {}
+                      removeFloatingSettingsControl();
+                      if (settingsControl != null) settingsControl.setVisibility(View.VISIBLE);
+                      manualPassThrough = false;
+                      return;
+                  }
+                  if (settingsControl == null) return;
+                  // 单独建立一个可点击的设置按钮窗口；原窗口整体不接收触摸。
+                  int[] pos = new int[2];
+                  settingsControl.getLocationOnScreen(pos);
+                  int w = Math.max(dp(35), settingsControl.getWidth());
+                  int h = Math.max(dp(35), settingsControl.getHeight());
+                  TextView floating = topButton("设置");
+                  floating.setTextColor(Color.WHITE);
+                  floating.setBackground(bg(Color.rgb(65,185,85),7,Color.rgb(35,125,55)));
+                  floating.setOnClickListener(v -> toggleManualPassThrough());
+                  floating.setOnLongClickListener(v -> {
+                      openSettingsPage();
+                      return true;
+                  });
+                  int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                          ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                          : WindowManager.LayoutParams.TYPE_PHONE;
+                  WindowManager.LayoutParams p = new WindowManager.LayoutParams(
+                          w,h,type,
+                          WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                          | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                          | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                          | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                          PixelFormat.TRANSLUCENT);
+                  p.gravity = Gravity.TOP | Gravity.START;
+                  p.x = pos[0];
+                  p.y = pos[1];
+                  try {
+                      windowManager.addView(floating,p);
+                  } catch (Exception e) {
+                      Toast.makeText(this,"穿透模式开启失败",Toast.LENGTH_SHORT).show();
+                      return;
+                  }
+                  floatingSettingsControl = floating;
+                  floatingSettingsParams = p;
+                  settingsControl.setVisibility(View.INVISIBLE);
+                  hideKeyboard();
                   if (inputBox != null) inputBox.clearFocus();
+                  params.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                          | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                  try {
+                      windowManager.updateViewLayout(rootView,params);
+                      manualPassThrough = true;
+                  } catch (Exception e) {
+                      params.flags &= ~WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+                      try { windowManager.updateViewLayout(rootView,params); }
+                      catch (Exception ignored) {}
+                      removeFloatingSettingsControl();
+                      settingsControl.setVisibility(View.VISIBLE);
+                  }
+              }
+
+              private void removeFloatingSettingsControl() {
+                  if (floatingSettingsControl != null && windowManager != null) {
+                      try { windowManager.removeViewImmediate(floatingSettingsControl); }
+                      catch (Exception ignored) {}
+                  }
+                  floatingSettingsControl = null;
+                  floatingSettingsParams = null;
+              }
+
+              private void releaseInputFocus() {
+                  if (manualPassThrough) return;
+                  if (params == null || windowManager == null || rootView == null) return;
+                  if ((params.flags & WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) != 0) return;
+                  params.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                  inputBox.clearFocus();
                   try { windowManager.updateViewLayout(rootView, params); }
                   catch (Exception ignored) {}
               }
 
               private void acquireInputFocus() {
+                  if (manualPassThrough) return;
                   if (params == null || windowManager == null || rootView == null) return;
-                  int mask = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                           | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
-                  if ((params.flags & mask) == 0) return;
-                  params.flags &= ~mask;
+                  if ((params.flags & WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0) return;
+                  params.flags &= ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
                   try { windowManager.updateViewLayout(rootView, params); }
                   catch (Exception ignored) {}
               }
 
               private void showKeyboard() {
+                  if (manualPassThrough) return;
 
                   if (
                       inputBox == null ||
@@ -4496,6 +4569,7 @@ jobs:
 
               @Override
               public void onDestroy() {
+                  removeFloatingSettingsControl();
 
                   if (speechEngine != null) {
                       speechEngine.stop();
@@ -4628,13 +4702,13 @@ jobs:
         shell: bash
         run: |
           test -f app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V17.0.apk
-          ls -lh FloatingInputApp-V17.0.apk
+          cp app/build/outputs/apk/debug/app-debug.apk FloatingInputApp-V17.3.apk
+          ls -lh FloatingInputApp-V17.3.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatingInputApp-V17.0-APK
-          path: FloatingInputApp-V17.0.apk
+          name: FloatingInputApp-V17.3-APK
+          path: FloatingInputApp-V17.3.apk
           if-no-files-found: error
           retention-days: 30
