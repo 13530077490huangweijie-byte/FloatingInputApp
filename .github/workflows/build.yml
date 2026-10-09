@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 170
-                  versionName "17.0"
+                  versionCode 171
+                  versionName "17.1"
               }
 
               compileOptions {
@@ -306,6 +306,14 @@ jobs:
                   clear.setOnClickListener(v->{RecordStore.clear(this);refresh();});
                   setContentView(root);
                   refresh();
+              }
+              @Override protected void onDestroy() {
+                  super.onDestroy();
+                  if (!getIntent().getBooleanExtra("settings",false)) {
+                      Intent intent=new Intent(this,FloatingService.class);
+                      intent.setAction("SHOW_FROM_RECORD");
+                      try { startService(intent); } catch (Exception ignored) {}
+                  }
               }
           }
           EOF
@@ -1996,6 +2004,11 @@ jobs:
                       closeEverything();
 
                   } else if (
+                      "SHOW_FROM_RECORD".equals(action)
+                  ) {
+                      showOverlay();
+                      releaseInputFocus();
+                  } else if (
                       "SHOW_FROM_HISTORY".equals(action)
                   ) {
 
@@ -2287,9 +2300,21 @@ jobs:
                   addTop(top, speakButton);
                   addTop(top, recordButton);
                   recordButton.setOnClickListener(v -> {
+                      // 与历史页面一致：进入记录页面前隐藏悬浮输入窗
+                      saveInputHistory();
+                      saveSettings();
+                      hideKeyboard();
+                      if (rootView != null) {
+                          rootView.setVisibility(View.GONE);
+                          hidden = true;
+                      }
                       Intent i = new Intent(this, RecordActivity.class);
                       i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                      startActivity(i);
+                      try {
+                          startActivity(i);
+                      } catch (Exception ex) {
+                          showOverlay();
+                      }
                   });
                   recordButton.setOnLongClickListener(v -> {
                       Intent i=new Intent(this,RecordActivity.class);
