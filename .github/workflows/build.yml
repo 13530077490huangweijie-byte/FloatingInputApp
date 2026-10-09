@@ -1,4 +1,4 @@
-name: Build Floating Input APK V17.3
+name: Build Floating Input APK V17.4
 
 on:
   workflow_dispatch:
@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 173
-                  versionName "17.3"
+                  versionCode 174
+                  versionName "17.4"
               }
 
               compileOptions {
@@ -2306,9 +2306,6 @@ jobs:
                   addTop(top, settings);
                   addTop(top, history);
                   addTop(top, colorButton);
-                  addTop(top, translate);
-                  addTop(top, speakButton);
-                  addTop(top, recordButton);
                   recordButton.setOnClickListener(v -> {
                       // 与历史页面一致：进入记录页面前隐藏悬浮输入窗
                       saveInputHistory();
@@ -2680,8 +2677,18 @@ jobs:
                           new LinearLayout.LayoutParams(dp(36), dp(30)));
                   compactControls.addView(compactResize,
                           new LinearLayout.LayoutParams(dp(36), dp(30)));
+                  // 三个功能键从顶部移至输入框下方工具栏
+                  translate.setTextSize(11);
+                  speakButton.setTextSize(11);
+                  recordButton.setTextSize(11);
+                  compactControls.addView(translate,
+                          new LinearLayout.LayoutParams(0,dp(30),1f));
+                  compactControls.addView(speakButton,
+                          new LinearLayout.LayoutParams(0,dp(30),1f));
+                  compactControls.addView(recordButton,
+                          new LinearLayout.LayoutParams(0,dp(30),1f));
                   rootView.addView(compactControls,
-                          new LinearLayout.LayoutParams(-1, dp(32)));
+                          new LinearLayout.LayoutParams(-1, dp(34)));
                   foldButton.setOnClickListener(v -> {
                       collapsed = !collapsed;
                       expandedTop.setVisibility(collapsed ? View.GONE : View.VISIBLE);
@@ -4085,11 +4092,13 @@ jobs:
                               } else {
                                   combinedText =
                                           currentText +
-                                          "\\n" +
+                                          "\n" +
                                           result;
                               }
 
+                              restoringRecordText = true;
                               inputBox.setText(combinedText);
+                              restoringRecordText = false;
                               inputBox.setSelection(
                                       inputBox.length()
                               );
@@ -4116,7 +4125,8 @@ jobs:
                           handler.post(() ->
                                   Toast.makeText(
                                           FloatingService.this,
-                                          "翻译失败，请检查网络后重试",
+                                          "翻译失败：" + e.getClass().getSimpleName()
+                                              + "，请检查网络或稍后重试",
                                           Toast.LENGTH_SHORT
                                   ).show()
                           );
