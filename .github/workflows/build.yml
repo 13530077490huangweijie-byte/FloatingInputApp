@@ -1,4 +1,4 @@
-name: Build Floating Input APK V17.4
+name: Build Floating Input APK V17.5
 
 on:
   workflow_dispatch:
@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 174
-                  versionName "17.4"
+                  versionCode 175
+                  versionName "17.5"
               }
 
               compileOptions {
@@ -4149,13 +4149,19 @@ jobs:
                                   .trim();
 
                   if (text.isEmpty()) {
-
-                      Toast.makeText(
-                              this,
-                              "请输入网址或搜索内容",
-                              Toast.LENGTH_SHORT
-                      ).show();
-
+                      // 空输入时回车：使用系统默认浏览器打开首页
+                      try {
+                          Intent browser = new Intent(
+                                  Intent.ACTION_VIEW,
+                                  Uri.parse("https://www.baidu.com/"));
+                          browser.addCategory(Intent.CATEGORY_BROWSABLE);
+                          browser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                          startActivity(browser);
+                          closeEverything();
+                      } catch (Exception e) {
+                          Toast.makeText(this, "无法打开浏览器，请检查默认浏览器设置",
+                                  Toast.LENGTH_SHORT).show();
+                      }
                       return;
                   }
 
