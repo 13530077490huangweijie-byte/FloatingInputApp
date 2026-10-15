@@ -1,4 +1,4 @@
-name: Build Floating Input APK V17.7
+name: Build Floating Input APK V17.6
 
 on:
   workflow_dispatch:
@@ -74,8 +74,8 @@ jobs:
                   applicationId "com.jiexin.floatinginput"
                   minSdk 23
                   targetSdk 35
-                  versionCode 177
-                  versionName "17.7"
+                  versionCode 176
+                  versionName "17.6"
               }
 
               compileOptions {
@@ -164,7 +164,6 @@ jobs:
                       android:excludeFromRecents="true"
                       android:exported="false" />
 
-                  <activity android:name=".QuickPhraseActivity" android:exported="false" />
                   <activity android:name=".RecordActivity"
                       android:exported="false" />
                   <activity
@@ -264,111 +263,6 @@ jobs:
           }
           EOF
 
-          cat > app/src/main/java/com/jiexin/floatinginput/QuickPhraseActivity.java <<'EOF'
-          package com.jiexin.floatinginput;
-          import android.app.Activity;
-          import android.app.AlertDialog;
-          import android.content.Intent;
-          import android.content.SharedPreferences;
-          import android.graphics.Color;
-          import android.os.Bundle;
-          import android.text.Editable;
-          import android.text.TextWatcher;
-          import android.view.Gravity;
-          import android.view.View;
-          import android.widget.*;
-          import org.json.JSONArray;
-          import java.util.ArrayList;
-          import java.util.List;
-          import java.util.Locale;
-
-          public class QuickPhraseActivity extends Activity {
-              private LinearLayout rows;
-              private EditText search;
-              private boolean inserted=false;
-              private final List<String> phrases=new ArrayList<>();
-              private SharedPreferences pref(){return getSharedPreferences("quick_phrases",0);}
-              private void load(){
-                  phrases.clear();
-                  try{
-                      JSONArray a=new JSONArray(pref().getString("items","[]"));
-                      for(int i=0;i<a.length();i++)phrases.add(a.optString(i));
-                  }catch(Exception ignored){}
-              }
-              private void save(){
-                  JSONArray a=new JSONArray();for(String p:phrases)a.put(p);
-                  pref().edit().putString("items",a.toString()).apply();
-              }
-              private void choose(String phrase){
-                  Intent i=new Intent(this,FloatingService.class);
-                  i.setAction("INSERT_FROM_LIST");i.putExtra("insert_text",phrase);
-                  inserted=true;startService(i);finish();
-              }
-              private void render(){
-                  rows.removeAllViews();
-                  String q=search.getText().toString().trim().toLowerCase(Locale.ROOT);
-                  for(String phrase:phrases){
-                      if(!phrase.toLowerCase(Locale.ROOT).contains(q))continue;
-                      LinearLayout line=new LinearLayout(this);
-                      line.setGravity(Gravity.CENTER_VERTICAL);
-                      TextView text=new TextView(this);
-                      text.setText(phrase);text.setTextSize(18);text.setTextColor(Color.BLACK);
-                      text.setPadding(16,18,16,18);
-                      line.addView(text,new LinearLayout.LayoutParams(0,-2,1));
-                      text.setOnClickListener(v->choose(phrase));
-                      Button delete=new Button(this);delete.setText("删除");
-                      delete.setOnClickListener(v->new AlertDialog.Builder(this)
-                          .setMessage("删除这条快捷短语？")
-                          .setNegativeButton("取消",null)
-                          .setPositiveButton("删除",(d,w)->{phrases.remove(phrase);save();render();}).show());
-                      line.addView(delete,new LinearLayout.LayoutParams(-2,-2));
-                      rows.addView(line);
-                      View divider=new View(this);divider.setBackgroundColor(0xffdddddd);
-                      rows.addView(divider,new LinearLayout.LayoutParams(-1,1));
-                  }
-                  if(rows.getChildCount()==0){TextView empty=new TextView(this);
-                      empty.setText("暂无匹配短语，点击右上角＋添加");
-                      empty.setPadding(20,40,20,20);rows.addView(empty);}
-              }
-              private void addPhrase(){
-                  EditText entry=new EditText(this);entry.setHint("输入要保存的快捷短语");
-                  entry.setMinLines(2);
-                  new AlertDialog.Builder(this).setTitle("添加快捷短语").setView(entry)
-                      .setNegativeButton("取消",null)
-                      .setPositiveButton("保存",(d,w)->{
-                          String t=entry.getText().toString().trim();
-                          if(!t.isEmpty()){phrases.add(t);save();render();}
-                      }).show();
-              }
-              @Override public void onCreate(Bundle state){
-                  super.onCreate(state);load();
-                  LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
-                  root.setBackgroundColor(Color.WHITE);root.setPadding(12,12,12,12);
-                  LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);
-                  TextView title=new TextView(this);title.setText("快捷短语");title.setTextSize(22);
-                  top.addView(title,new LinearLayout.LayoutParams(0,-2,1));
-                  Button add=new Button(this);add.setText("＋");add.setTextSize(22);
-                  top.addView(add);add.setOnClickListener(v->addPhrase());root.addView(top);
-                  ScrollView scroll=new ScrollView(this);rows=new LinearLayout(this);
-                  rows.setOrientation(LinearLayout.VERTICAL);scroll.addView(rows);
-                  root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-                  search=new EditText(this);search.setSingleLine(true);
-                  search.setHint("搜索短语（输入即筛选）");root.addView(search);
-                  search.addTextChangedListener(new TextWatcher(){
-                      public void beforeTextChanged(CharSequence s,int a,int c,int d){}
-                      public void onTextChanged(CharSequence s,int a,int b,int c){render();}
-                      public void afterTextChanged(Editable e){}
-                  });
-                  setContentView(root);render();
-              }
-              @Override protected void onDestroy(){super.onDestroy();if(!inserted){
-                  Intent i=new Intent(this,FloatingService.class);
-                  i.setAction("SHOW_FROM_RECORD");
-                  try{startService(i);}catch(Exception ignored){}
-              }}
-          }
-          EOF
-
           cat > app/src/main/java/com/jiexin/floatinginput/RecordActivity.java <<'EOF'
           package com.jiexin.floatinginput;
           import android.app.Activity;
@@ -390,7 +284,6 @@ jobs:
               private Spinner categoryFilter;
               private final ArrayList<String> categories=new ArrayList<>();
               private boolean settings;
-              private boolean inserted;
               private String custom(){return getSharedPreferences("record_categories",0).getString("custom","");}
               private void loadCategories(){
                   categories.clear();Collections.addAll(categories,"全部","网址","快递单号","算式","中文","其他");
@@ -415,17 +308,6 @@ jobs:
                       TextView content=new TextView(this);content.setText(e.text);content.setTextSize(18);
                       content.setTextColor(Color.BLACK);content.setTextIsSelectable(true);
                       content.setPadding(5,8,5,12);row.addView(content);
-                      // 单击记录插入原悬浮输入框；长按仍可使用系统选择复制菜单
-                      View.OnClickListener insertRecord = v -> {
-                          Intent back=new Intent(this,FloatingService.class);
-                          back.setAction("INSERT_FROM_LIST");
-                          back.putExtra("insert_text",e.text);
-                          inserted=true;
-                          startService(back);
-                          finish();
-                      };
-                      row.setOnClickListener(insertRecord);
-                      content.setOnClickListener(insertRecord);
                       Button change=new Button(this);change.setText("分类");
                       change.setOnClickListener(v->new AlertDialog.Builder(this)
                           .setItems(categories.subList(1,categories.size()).toArray(new String[0]),(d,which)->{
@@ -470,7 +352,7 @@ jobs:
                       public void onNothingSelected(android.widget.AdapterView<?> p){} });
                   setContentView(root);refresh();
               }
-              @Override protected void onDestroy(){super.onDestroy();if(!settings&&!inserted){
+              @Override protected void onDestroy(){super.onDestroy();if(!settings){
                   Intent i=new Intent(this,FloatingService.class);i.setAction("SHOW_FROM_RECORD");
                   try{startService(i);}catch(Exception ignored){}
               }}
@@ -2189,20 +2071,6 @@ jobs:
 
                       closeEverything();
 
-                  } else if ("INSERT_FROM_LIST".equals(action)) {
-                      String selected = intent.getStringExtra("insert_text");
-                      showOverlay();
-                      if (selected != null && inputBox != null && !selected.isEmpty()) {
-                          int pos = savedInputCursor;
-                          if (pos < 0 || pos > inputBox.length()) pos = inputBox.length();
-                          // 用户主动选择的文字应插入输入框，但不再次计入留存记录
-                          restoringRecordText = true;
-                          try { inputBox.getText().insert(pos, selected); }
-                          finally { restoringRecordText = false; }
-                          inputBox.requestFocus();
-                          inputBox.setSelection(Math.min(inputBox.length(), pos + selected.length()));
-                          showKeyboard();
-                      }
                   } else if (
                       "SHOW_FROM_RECORD".equals(action)
                   ) {
@@ -2492,7 +2360,6 @@ jobs:
 
                   TextView speakButton = topButton("朗读");
                   TextView recordButton = topButton("记录");
-                  TextView quickPhraseButton = topButton("快捷短语");
 
                   moveButton =
                           topButton("⇕移动");
@@ -2517,18 +2384,6 @@ jobs:
                       } catch (Exception ex) {
                           showOverlay();
                       }
-                  });
-                  quickPhraseButton.setOnClickListener(v -> {
-                      saveInputHistory();
-                      saveSettings();
-                      hideKeyboard();
-                      if (rootView != null) {
-                          rootView.setVisibility(View.GONE);
-                          hidden = true;
-                      }
-                      Intent i = new Intent(this, QuickPhraseActivity.class);
-                      i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                      try { startActivity(i); } catch (Exception ex) { showOverlay(); }
                   });
                   recordButton.setOnLongClickListener(v -> {
                       Intent i=new Intent(this,RecordActivity.class);
@@ -2894,9 +2749,6 @@ jobs:
                           new LinearLayout.LayoutParams(0,dp(30),1f));
                   compactControls.addView(recordButton,
                           new LinearLayout.LayoutParams(0,dp(30),1f));
-                  quickPhraseButton.setTextSize(10);
-                  compactControls.addView(quickPhraseButton,
-                          new LinearLayout.LayoutParams(0,dp(30),1.2f));
                   rootView.addView(compactControls,
                           new LinearLayout.LayoutParams(-1, dp(34)));
                   foldButton.setOnClickListener(v -> {
@@ -3117,7 +2969,7 @@ jobs:
                   );
 
                   expandedInfo = info;
-                  // No weather / step-count footer in V17.7.
+                  // No weather / step-count footer in V17.6.
 
                   int type =
                           Build.VERSION.SDK_INT >=
